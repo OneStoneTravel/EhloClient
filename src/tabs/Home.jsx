@@ -63,7 +63,16 @@ export default function Home({ session, onNavigate }) {
 
   function greeting() {
     const hour = new Date().getHours();
-    const name = staffName ? staffName.split(" ")[0] : session.user.email.split("@")[0];
+    const email = session.user.email.toLowerCase();
+
+    const KNOWN_NAMES = {
+      "terrencetedwards@gmail.com": "TERRENCE",
+      "roze.mbr@gmail.com": "MARY",
+    };
+
+    const name = KNOWN_NAMES[email]
+      || (staffName ? staffName.split(" ")[0].toUpperCase() : email.split("@")[0].toUpperCase());
+
     if (hour >= 5 && hour < 12) return `Good morning, ${name}`;
     if (hour >= 12 && hour < 17) return `Good afternoon, ${name}`;
     if (hour >= 17 && hour < 21) return `Good evening, ${name}`;
