@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Component } from "react";
 import { supabase } from "./supabaseClient";
 import Home from "./tabs/Home";
 import NewClient from "./tabs/NewClient";
@@ -70,6 +70,31 @@ const TABS = [
   { key: "history", label: "History" },
 ];
 
+class TabErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error("Tab crashed:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="panel">
+          <div style={{ color: "var(--red)", fontWeight: 600, marginBottom: 6 }}>This tab hit an error and couldn't load.</div>
+          <div className="muted">{this.state.error.message || String(this.state.error)}</div>
+          <button className="ghost" style={{ marginTop: 10 }} onClick={() => this.setState({ error: null })}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function EhloShell({ session }) {
   const [tab, setTab] = useState("home");
 
@@ -102,16 +127,18 @@ function EhloShell({ session }) {
           ))}
         </div>
 
-        {tab === "home" && <Home session={session} onNavigate={setTab} />}
-        {tab === "newclient" && <NewClient session={session} />}
-        {tab === "directory" && <Directory session={session} />}
-        {tab === "billing" && <Billing session={session} />}
-        {tab === "revenue" && <Revenue session={session} />}
-        {tab === "expense" && <Expense session={session} />}
-        {tab === "reports" && <Reports session={session} />}
-        {tab === "timesheets" && <Timesheets session={session} onNavigate={setTab} />}
-        {tab === "team" && <Team session={session} />}
-        {tab === "history" && <History session={session} />}
+        <TabErrorBoundary key={tab}>
+          {tab === "home" && <Home session={session} onNavigate={setTab} />}
+          {tab === "newclient" && <NewClient session={session} />}
+          {tab === "directory" && <Directory session={session} />}
+          {tab === "billing" && <Billing session={session} />}
+          {tab === "revenue" && <Revenue session={session} />}
+          {tab === "expense" && <Expense session={session} />}
+          {tab === "reports" && <Reports session={session} />}
+          {tab === "timesheets" && <Timesheets session={session} onNavigate={setTab} />}
+          {tab === "team" && <Team session={session} />}
+          {tab === "history" && <History session={session} />}
+        </TabErrorBoundary>
       </div>
     </div>
   );
