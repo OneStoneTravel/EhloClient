@@ -167,6 +167,13 @@ export function hoursWorked(entry) {
   return Math.max(co - ci, 0);
 }
 
+// True unless the client has ended service and this month is after their final active month.
+export function clientActiveInMonth(client, monthKey) {
+  if (client.status !== "inactive") return true;
+  if (!client.service_end_date) return false;
+  return monthKey <= monthKeyOf(client.service_end_date);
+}
+
 export async function fetchExpenseTotals(monthKeys) {
   if (!monthKeys.length) return { manual: 0, payroll: 0, total: 0 };
   const start = monthKeys[0];
