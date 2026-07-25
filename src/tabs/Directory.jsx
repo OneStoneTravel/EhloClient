@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { PLAN_TIERS, tenureLabel, daysUntilDue, dueStatus, logActivity } from "../shared";
+import { PLAN_TIERS, tenureLabel, daysUntilDue, dueStatus, localDateStr, logActivity } from "../shared";
 import Modal from "../Modal";
+import DatePicker from "../DatePicker";
 
 export default function Directory({ session }) {
   const [clients, setClients] = useState([]);
@@ -9,6 +10,9 @@ export default function Directory({ session }) {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [showInactive, setShowInactive] = useState(false);
+  const [ending, setEnding] = useState(null);
+  const [endDate, setEndDate] = useState(localDateStr());
 
   async function load() {
     const { data: c } = await supabase.from("clients").select("*").order("company_name");
@@ -49,31 +53,57 @@ export default function Directory({ session }) {
     }
   }
 
-  const filtered = clients.filter((c) =>
-    !search || (c.company_name + " " + (c.client_number || "")).toLowerCase().includes(search.toLowerCase())
-  );
+  function openEndService(c) {
+    setEnding(c);
+    setEndDate(localDateStr());
+  }
+
+  async function confirmEndService() {
+    await supabase.from("clients").update({ status: "inactive", service_end_date: endDate }).eq("id", ending.id);
+    await logActivity(session, `ended service for ${ending.company_name}, final active month through ${endDate}.`);
+    setEnding(null);
+    load();
+  }
+
+  async function reactivateClient(c) {
+    await supabase.from("clients").update({ status: "active", service_end_date: null }).eq("id", c.id);
+    await logActivity(session, `reactivated ${c.company_name} as an active client.`);
+    load();
+  }
+
+  const filtered = clients
+    .filter((c) => showInactive || c.status !== "inactive")
+    .filter((c) => !search || (c.company_name + " " + (c.client_number || "")).toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="panel">
       <h2>Client directory</h2>
-      <input className="search-input" placeholder="Search company or client #..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ marginBottom: 14 }} />
+      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+        <input className="search-input" placeholder="Search company or client #..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
+        <button className="ghost" onClick={() => setShowInactive(!showInactive)}>{showInactive ? "Hide inactive" : "Show inactive"}</button>
+      </div>
 
       <div className="tbl-wrap">
         <table className="k">
           <thead>
             <tr>
-              <th>Client #</th><th>Company</th><th>Plan</th><th>Authorized contact</th>
+              <th>Client #</th><th>Company</th><th>Status</th><th>Plan</th><th>Authorized contact</th>
               <th>Phone</th><th>Email</th><th>Client tenure</th><th>Retainer due</th><th>Travelers</th><th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="empty">No clients found.</td></tr>
+              <tr><td colSpan={11} className="empty">No clients found.</td></tr>
             ) : (
               filtered.map((c) => (
                 <tr key={c.id}>
                   <td className="cnum">{c.client_number || "—"}</td>
                   <td style={{ fontWeight: 600, color: "var(--navy)" }}>{c.company_name}</td>
+                  <td>
+                    {c.status === "inactive"
+                      ? <span className="check-pill unpaid">Inactive since {c.service_end_date}</span>
+                      : <span className="check-pill paid">Active</span>}
+                  </td>
                   <td><span className="plan-tag">{c.plan_tier}</span></td>
                   <td>{c.authorized_person || "—"}</td>
                   <td className="muted">{c.contact_phone || "—"}</td>
@@ -86,7 +116,12 @@ export default function Directory({ session }) {
                     })()}
                   </td>
                   <td className="muted">{travelerCounts[c.id] || 0}</td>
-                  <td><button className="ghost" onClick={() => openEdit(c)}>Edit</button></td>
+                  <td style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button className="ghost" onClick={() => openEdit(c)}>Edit</button>
+                    {c.status === "inactive"
+                      ? <button className="ghost" onClick={() => reactivateClient(c)}>Reactivate</button>
+                      : <button className="ghost" onClick={() => openEndService(c)}>End service</button>}
+                  </td>
                 </tr>
               ))
             )}
@@ -118,6 +153,24 @@ export default function Directory({ session }) {
             <div className="modal-actions">
               <button className="ghost" onClick={closeEdit}>Cancel</button>
               <button onClick={saveEdit}>Save</button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={!!ending} onClose={() => setEnding(null)}>
+        {ending && (
+          <>
+            <h3>End service — {ending.company_name}</h3>
+            <div className="modal-sub">
+              They'll stay fully visible in Billing, Revenue, and reports for every month up through this date — we just stop expecting
+              future revenue from them and Knox Tracker's trip form will stop offering them as an option.
+            </div>
+            <label style={{ display: "block", fontSize: 10.5, textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 4 }}>Last active date</label>
+            <DatePicker value={endDate} onChange={setEndDate} />
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setEnding(null)}>Cancel</button>
+              <button onClick={confirmEndService}>Confirm — end service</button>
             </div>
           </>
         )}
