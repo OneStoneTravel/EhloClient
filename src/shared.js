@@ -125,6 +125,70 @@ export function dueStatus(days) {
   return { label: `Due in ${days}d`, color: "var(--ink-soft)", urgent: false };
 }
 
+export function startOfWeekStr(d) {
+  d = d || new Date();
+  const day = d.getDay(); // 0=Sun, 1=Mon...
+  const diff = (day === 0 ? -6 : 1) - day; // shift back to Monday
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  return localDateStr(monday);
+}
+
+export function addDaysStr(dateStr, n) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return localDateStr(dt);
+}
+
+export function weekLabel(weekStartStr) {
+  const end = addDaysStr(weekStartStr, 6);
+  const [y1, m1, d1] = weekStartStr.split("-").map(Number);
+  const [y2, m2, d2] = end.split("-").map(Number);
+  const s = new Date(y1, m1 - 1, d1).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const e = new Date(y2, m2 - 1, d2).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${s} – ${e}`;
+}
+
+function punchToDecimal(t) {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h + m / 60;
+}
+
+export function hoursWorked(entry) {
+  if (!entry) return 0;
+  const ci = punchToDecimal(entry.clock_in);
+  const lo = punchToDecimal(entry.lunch_out);
+  const li = punchToDecimal(entry.lunch_in);
+  const co = punchToDecimal(entry.clock_out);
+  if (ci == null || co == null) return 0;
+  if (lo != null && li != null) return Math.max((lo - ci) + (co - li), 0);
+  return Math.max(co - ci, 0);
+}
+
+export async function fetchExpenseTotals(monthKeys) {
+  if (!monthKeys.length) return { manual: 0, payroll: 0, total: 0 };
+  const start = monthKeys[0];
+  const end = nextMonthKey(monthKeys[monthKeys.length - 1]);
+
+  const { data: manualRows } = await supabase
+    .from("business_expenses")
+    .select("amount")
+    .gte("expense_date", start)
+    .lt("expense_date", end);
+  const manual = (manualRows || []).reduce((s, e) => s + Number(e.amount), 0);
+
+  const { data: sheets } = await supabase
+    .from("timesheets")
+    .select("clock_in, lunch_out, lunch_in, clock_out, hourly_rate")
+    .gte("work_date", start)
+    .lt("work_date", end);
+  const payroll = (sheets || []).reduce((s, t) => s + hoursWorked(t) * (Number(t.hourly_rate) || 0), 0);
+
+  return { manual, payroll, total: manual + payroll };
+}
+
 export async function logActivity(session, action) {
   await supabase.from("activity_log").insert({
     actor_email: session?.user?.email || "unknown",
