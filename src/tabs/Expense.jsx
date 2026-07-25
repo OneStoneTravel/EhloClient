@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { currentMonthKey, prevMonthKey, nextMonthKey, monthLabel, localDateStr, logActivity } from "../shared";
+import { currentMonthKey, prevMonthKey, nextMonthKey, monthLabel, localDateStr, logActivity, fetchExpenseTotals, hoursWorked } from "../shared";
 
-const CATEGORIES = ["Software & Subscriptions", "Payroll", "Office & Rent", "Marketing", "Insurance", "Staff Travel", "Other"];
+const CATEGORIES = ["Software & Subscriptions", "Payroll (one-off)", "Office & Rent", "Marketing", "Insurance", "Staff Travel", "Other"];
 
 export default function Expense({ session }) {
   const [viewMonth, setViewMonth] = useState(currentMonthKey());
@@ -10,6 +10,21 @@ export default function Expense({ session }) {
   const [form, setForm] = useState({ category: CATEGORIES[0], description: "", amount: "", expense_date: localDateStr() });
   const [editingEntry, setEditingEntry] = useState(null);
   const [editForm, setEditForm] = useState({ amount: "", description: "" });
+  const [payrollMonth, setPayrollMonth] = useState(0);
+  const [payrollYtd, setPayrollYtd] = useState(0);
+
+  async function loadPayroll() {
+    const monthTotals = await fetchExpenseTotals([viewMonth]);
+    setPayrollMonth(monthTotals.payroll);
+
+    const now = new Date();
+    const yearMonths = [];
+    for (let i = 0; i <= now.getMonth(); i++) {
+      yearMonths.push(`${now.getFullYear()}-${String(i + 1).padStart(2, "0")}-01`);
+    }
+    const ytdTotals = await fetchExpenseTotals(yearMonths);
+    setPayrollYtd(ytdTotals.payroll);
+  }
 
   async function load() {
     const { data } = await supabase
@@ -21,7 +36,7 @@ export default function Expense({ session }) {
     setEntries(data || []);
   }
 
-  useEffect(() => { load(); }, [viewMonth]);
+  useEffect(() => { load(); loadPayroll(); }, [viewMonth]);
 
   const total = entries.reduce((s, e) => s + Number(e.amount), 0);
   const byCategory = CATEGORIES.map((cat) => ({
@@ -66,6 +81,50 @@ export default function Expense({ session }) {
     load();
   }
 
+  async function printPayrollReport() {
+    const { data: sheets } = await supabase
+      .from("timesheets")
+      .select("*")
+      .gte("work_date", viewMonth)
+      .lt("work_date", nextMonthKey(viewMonth));
+
+    const byStaff = {};
+    (sheets || []).forEach((s) => {
+      byStaff[s.staff_name] = byStaff[s.staff_name] || { hours: 0, pay: 0 };
+      const h = hoursWorked(s);
+      byStaff[s.staff_name].hours += h;
+      byStaff[s.staff_name].pay += h * Number(s.hourly_rate || 0);
+    });
+
+    const rows = Object.entries(byStaff);
+    const totalHours = rows.reduce((s, [, v]) => s + v.hours, 0);
+    const totalPay = rows.reduce((s, [, v]) => s + v.pay, 0);
+
+    const win = window.open("", "_blank");
+    win.document.write(`
+      <html><head><title>Payroll Report — ${monthLabel(viewMonth)}</title>
+      <style>
+        body{font-family:Georgia,serif;padding:40px;color:#23262B;max-width:640px;margin:0 auto;}
+        h1{font-size:20px;margin-bottom:2px;}
+        .meta{color:#5B6270;font-size:13px;margin-bottom:24px;}
+        table{width:100%;border-collapse:collapse;font-size:13px;}
+        td,th{padding:7px 0;border-bottom:1px solid #E2E6EB;text-align:left;}
+        td:last-child,th:last-child{text-align:right;}
+      </style></head><body>
+      <h1>OneStone Travel — Payroll Report</h1>
+      <div class="meta">${monthLabel(viewMonth)}</div>
+      <table>
+        <tr><th>Staff</th><th>Hours</th><th>Pay</th></tr>
+        ${rows.map(([name, v]) => `<tr><td>${name}</td><td>${v.hours.toFixed(2)}</td><td>$${v.pay.toFixed(2)}</td></tr>`).join("")}
+        <tr><td><b>Total</b></td><td><b>${totalHours.toFixed(2)}</b></td><td><b>$${totalPay.toFixed(2)}</b></td></tr>
+      </table>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  }
+
   return (
     <div className="panel">
       <div className="sec-head" style={{ margin: "0 0 16px" }}>
@@ -82,8 +141,24 @@ export default function Expense({ session }) {
       </p>
 
       <div className="rev-cards">
-        <div className="rev-card accent"><div className="l">Total operating expenses — {monthLabel(viewMonth)}</div><div className="v">${total.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Manual expenses — {monthLabel(viewMonth)}</div><div className="v">${total.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Payroll (from Time tab) — {monthLabel(viewMonth)}</div><div className="v">${payrollMonth.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Payroll — year to date</div><div className="v">${payrollYtd.toLocaleString()}</div></div>
+        <div className="rev-card accent"><div className="l">Total operating expenses — {monthLabel(viewMonth)}</div><div className="v">${(total + payrollMonth).toLocaleString()}</div></div>
       </div>
+      <div className="rev-cards">
+        <div className="rev-card">
+          <div className="l">Payroll as % of total expense</div>
+          <div className="v">{(total + payrollMonth) > 0 ? Math.round((payrollMonth / (total + payrollMonth)) * 100) : 0}%</div>
+        </div>
+      </div>
+
+      <div className="section-label">Reports</div>
+      <button className="navy" onClick={printPayrollReport}>Print payroll report — {monthLabel(viewMonth)}</button>
+      <p className="muted" style={{ marginTop: -8, marginBottom: 18 }}>
+        Payroll is calculated automatically from hours logged in the Time tab × each staff member's hourly rate (set in Team/Users) —
+        no need to enter it manually here. The "Payroll (one-off)" category below is only for exceptions like bonuses or contractor payments.
+      </p>
 
       <div className="section-label">By category</div>
       {byCategory.length === 0 ? (
