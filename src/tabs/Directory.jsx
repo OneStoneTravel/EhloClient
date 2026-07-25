@@ -33,10 +33,12 @@ export default function Directory({ session }) {
 
   async function saveEdit() {
     const { error } = await supabase.from("clients").update({
+      client_number: editForm.client_number,
       plan_tier: editForm.plan_tier,
       monthly_threshold: parseFloat(editForm.monthly_threshold) || 0,
       contact_phone: editForm.contact_phone,
       authorized_person: editForm.authorized_person,
+      authorized_email: editForm.authorized_email,
       retainer_due_day: parseInt(editForm.retainer_due_day) || 1,
     }).eq("id", editing.id);
 
@@ -61,12 +63,12 @@ export default function Directory({ session }) {
           <thead>
             <tr>
               <th>Client #</th><th>Company</th><th>Plan</th><th>Authorized contact</th>
-              <th>Phone</th><th>Client tenure</th><th>Retainer due</th><th>Travelers</th><th></th>
+              <th>Phone</th><th>Email</th><th>Client tenure</th><th>Retainer due</th><th>Travelers</th><th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={9} className="empty">No clients found.</td></tr>
+              <tr><td colSpan={10} className="empty">No clients found.</td></tr>
             ) : (
               filtered.map((c) => (
                 <tr key={c.id}>
@@ -75,6 +77,7 @@ export default function Directory({ session }) {
                   <td><span className="plan-tag">{c.plan_tier}</span></td>
                   <td>{c.authorized_person || "—"}</td>
                   <td className="muted">{c.contact_phone || "—"}</td>
+                  <td className="muted">{c.authorized_email || "—"}</td>
                   <td className="muted">{tenureLabel(c.date_joined)}</td>
                   <td>
                     {(() => {
@@ -96,6 +99,8 @@ export default function Directory({ session }) {
           <>
             <h3>Edit {editing.company_name}</h3>
             <div className="modal-sub">Updates apply immediately across Ehlo and Knox Tracker.</div>
+            <label>Client number</label>
+            <input value={editForm.client_number || ""} onChange={(e) => setEditForm({ ...editForm, client_number: e.target.value })} />
             <label>Plan tier</label>
             <select value={editForm.plan_tier} onChange={(e) => setEditForm({ ...editForm, plan_tier: e.target.value })}>
               {PLAN_TIERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -106,6 +111,8 @@ export default function Directory({ session }) {
             <input type="number" min="1" max="28" value={editForm.retainer_due_day || 1} onChange={(e) => setEditForm({ ...editForm, retainer_due_day: e.target.value })} />
             <label>Authorized contact</label>
             <input value={editForm.authorized_person || ""} onChange={(e) => setEditForm({ ...editForm, authorized_person: e.target.value })} />
+            <label>Authorized contact email</label>
+            <input type="email" value={editForm.authorized_email || ""} onChange={(e) => setEditForm({ ...editForm, authorized_email: e.target.value })} />
             <label>Contact phone</label>
             <input value={editForm.contact_phone || ""} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
             <div className="modal-actions">
