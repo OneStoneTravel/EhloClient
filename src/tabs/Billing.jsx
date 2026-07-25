@@ -5,6 +5,7 @@ import {
 } from "../shared";
 import Modal from "../Modal";
 import ClientNotes from "../ClientNotes";
+import DatePicker from "../DatePicker";
 
 export default function Billing({ session }) {
   const [clients, setClients] = useState([]);
@@ -19,6 +20,7 @@ export default function Billing({ session }) {
   const [editForm, setEditForm] = useState({ amount: "", fee: "" });
   const [reportHtml, setReportHtml] = useState(null);
   const [prorationDate, setProrationDate] = useState(localDateStr());
+  const [clientDataLoading, setClientDataLoading] = useState(true);
   const [viewMonth, setViewMonth] = useState(currentMonthKey());
   const [ytdSpend, setYtdSpend] = useState(0);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -41,51 +43,34 @@ export default function Billing({ session }) {
 
   async function loadClientData(id) {
     if (!id) return;
-    const { data: exp } = await supabase
-      .from("client_expenses")
-      .select("*")
-      .eq("client_id", id)
-      .gte("entry_date", month)
-      .lt("entry_date", nextMonthKey(month))
-      .order("entry_date", { ascending: false });
-    setExpenses(exp || []);
+    setClientDataLoading(true);
 
-    const { data: ret } = await supabase
-      .from("retainer_payments")
-      .select("*")
-      .eq("client_id", id)
-      .eq("month", month)
-      .maybeSingle();
-    setRetainerRow(ret);
-
-    // Year-to-date travel spend, always relative to the current real year
-    const yearStart = `${new Date().getFullYear()}-01-01`;
-    const { data: ytd } = await supabase
-      .from("client_expenses")
-      .select("amount, category")
-      .eq("client_id", id)
-      .neq("category", "Booking Fee")
-      .gte("entry_date", yearStart);
-    setYtdSpend((ytd || []).reduce((s, e) => s + Number(e.amount), 0));
-
-    // Last 6 months of total travel spend, for the trend line
     const months = [];
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`);
     }
-    const { data: allExp } = await supabase
-      .from("client_expenses")
-      .select("amount, category, entry_date")
-      .eq("client_id", id)
-      .neq("category", "Booking Fee")
-      .gte("entry_date", months[0]);
+    const yearStart = `${new Date().getFullYear()}-01-01`;
+
+    const [expRes, retRes, ytdRes, trendRes] = await Promise.all([
+      supabase.from("client_expenses").select("*").eq("client_id", id)
+        .gte("entry_date", month).lt("entry_date", nextMonthKey(month)).order("entry_date", { ascending: false }),
+      supabase.from("retainer_payments").select("*").eq("client_id", id).eq("month", month).maybeSingle(),
+      supabase.from("client_expenses").select("amount, category").eq("client_id", id).neq("category", "Booking Fee").gte("entry_date", yearStart),
+      supabase.from("client_expenses").select("amount, category, entry_date").eq("client_id", id).neq("category", "Booking Fee").gte("entry_date", months[0]),
+    ]);
+
+    setExpenses(expRes.data || []);
+    setRetainerRow(retRes.data);
+    setYtdSpend((ytdRes.data || []).reduce((s, e) => s + Number(e.amount), 0));
+
     const byMonth = months.map((m) =>
-      (allExp || []).filter((e) => e.entry_date.slice(0, 7) === m.slice(0, 7))
+      (trendRes.data || []).filter((e) => e.entry_date.slice(0, 7) === m.slice(0, 7))
         .reduce((s, e) => s + Number(e.amount), 0)
     );
     setTrend(byMonth);
+    setClientDataLoading(false);
   }
 
   useEffect(() => { loadClientData(activeId); }, [activeId, viewMonth]);
@@ -200,6 +185,8 @@ export default function Billing({ session }) {
         <div>
           {!active ? (
             <div className="empty">Select a client to see their account.</div>
+          ) : clientDataLoading ? (
+            <div className="empty">Loading account…</div>
           ) : (
             <div>
               <div className="dtop">
@@ -259,7 +246,7 @@ export default function Billing({ session }) {
                     <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 12 }}>
                       <div>
                         <label style={{ display: "block", fontSize: 10.5, textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 4 }}>Start date</label>
-                        <input type="date" value={prorationDate} onChange={(e) => setProrationDate(e.target.value)} />
+                        <DatePicker value={prorationDate} onChange={setProrationDate} />
                       </div>
                     </div>
                     <div className="rev-cards" style={{ marginBottom: 20 }}>
