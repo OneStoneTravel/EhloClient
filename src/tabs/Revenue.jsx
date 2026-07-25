@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, monthLabel, barChart, logActivity } from "../shared";
+import { planByKey, monthLabel, prevMonthKey, barChart, logActivity } from "../shared";
 
 export default function Revenue({ session }) {
   const [clients, setClients] = useState([]);
@@ -15,15 +15,16 @@ export default function Revenue({ session }) {
 
     const now = new Date();
     const yearStart = `${now.getFullYear()}-01-01`;
+    const fetchStart = prevMonthKey(yearStart); // one month earlier, so Jan-vs-last-Dec comparisons work
     const m = [];
     for (let i = 0; i <= now.getMonth(); i++) {
       m.push(`${now.getFullYear()}-${String(i + 1).padStart(2, "0")}-01`);
     }
     setMonths(m);
 
-    const { data: r } = await supabase.from("retainer_payments").select("*").gte("month", yearStart);
+    const { data: r } = await supabase.from("retainer_payments").select("*").gte("month", fetchStart);
     setRetainers(r || []);
-    const { data: e } = await supabase.from("client_expenses").select("*").gte("entry_date", yearStart);
+    const { data: e } = await supabase.from("client_expenses").select("*").gte("entry_date", fetchStart);
     setExpenses(e || []);
   }
 
@@ -99,6 +100,18 @@ export default function Revenue({ session }) {
     tierGroups[tier].revenue += clientTotalRevenue(c, scopeMonths);
   });
   const tierRows = Object.entries(tierGroups).sort((a, b) => b[1].revenue - a[1].revenue);
+
+  // Revenue growth vs. last month (always month-over-month, regardless of the view toggle)
+  const prevMonth = prevMonthKey(currentMonth);
+  const prevMonthAgg = aggregateOver([prevMonth]);
+  const prevMonthRevenue = prevMonthAgg.fees + prevMonthAgg.retainerCollected;
+  const growthPct = prevMonthRevenue > 0
+    ? Math.round(((thisMonthAgg.fees + thisMonthAgg.retainerCollected - prevMonthRevenue) / prevMonthRevenue) * 100)
+    : null;
+
+  // Client concentration — how much of this scope's revenue rides on the single biggest client
+  const topClient = view === "month" ? monthHL.high : yearHL.high;
+  const concentrationPct = topClient && totalRevenue > 0 ? Math.round((topClient.total / totalRevenue) * 100) : null;
 
   async function markPaid(client) {
     const { error } = await supabase.from("retainer_payments").upsert({
@@ -215,6 +228,18 @@ export default function Revenue({ session }) {
       <div className="rev-cards">
         <div className="rev-card"><div className="l">Predictable revenue next month (retainers only)</div><div className="v">${predictableNextMonth.toLocaleString()}</div></div>
         <div className="rev-card"><div className="l">Average revenue per client ({view === "month" ? "this month" : "YTD"})</div><div className="v">${avgRevenuePerClient.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+        <div className="rev-card">
+          <div className="l">Revenue growth vs. last month</div>
+          <div className="v" style={{ color: growthPct === null ? undefined : growthPct >= 0 ? "var(--green)" : "var(--red)" }}>
+            {growthPct === null ? "—" : `${growthPct > 0 ? "+" : ""}${growthPct}%`}
+          </div>
+        </div>
+        <div className="rev-card">
+          <div className="l">Client concentration risk</div>
+          <div className="v" style={{ fontSize: 15 }}>
+            {concentrationPct === null ? "—" : `${concentrationPct}% from ${topClient.name}`}
+          </div>
+        </div>
       </div>
 
       <div className="section-label">Revenue by plan tier — {view === "month" ? monthLabel(currentMonth) : `Jan–${monthLabel(currentMonth).split(" ")[0]}`}</div>
