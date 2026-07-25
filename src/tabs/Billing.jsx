@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import {
-  statusColor, sparkline, suggestedFee, currentMonthKey, monthLabel, localDateStr, logActivity,
+  statusColor, sparkline, suggestedFee, currentMonthKey, nextMonthKey, prevMonthKey, monthLabel, localDateStr, logActivity, planByKey,
 } from "../shared";
 import Modal from "../Modal";
+import ClientNotes from "../ClientNotes";
 
 export default function Billing({ session }) {
   const [clients, setClients] = useState([]);
@@ -13,12 +14,15 @@ export default function Billing({ session }) {
   const [expenses, setExpenses] = useState([]);
   const [retainerRow, setRetainerRow] = useState(null);
   const [trend, setTrend] = useState([]);
-  const [entryForm, setEntryForm] = useState({ traveler: "", category: "Flight", amount: "", fee: "" });
+  const [entryForm, setEntryForm] = useState({ traveler: "", category: "Flight", amount: "", fee: "", date: localDateStr() });
   const [editingEntry, setEditingEntry] = useState(null);
   const [editForm, setEditForm] = useState({ amount: "", fee: "" });
   const [reportHtml, setReportHtml] = useState(null);
+  const [viewMonth, setViewMonth] = useState(currentMonthKey());
+  const [ytdSpend, setYtdSpend] = useState(0);
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
-  const month = currentMonthKey();
+  const month = viewMonth;
   const active = clients.find((c) => c.id === activeId);
   const clientTravelers = travelers.filter((t) => t.client_id === activeId);
 
@@ -41,6 +45,7 @@ export default function Billing({ session }) {
       .select("*")
       .eq("client_id", id)
       .gte("entry_date", month)
+      .lt("entry_date", nextMonthKey(month))
       .order("entry_date", { ascending: false });
     setExpenses(exp || []);
 
@@ -51,6 +56,16 @@ export default function Billing({ session }) {
       .eq("month", month)
       .maybeSingle();
     setRetainerRow(ret);
+
+    // Year-to-date travel spend, always relative to the current real year
+    const yearStart = `${new Date().getFullYear()}-01-01`;
+    const { data: ytd } = await supabase
+      .from("client_expenses")
+      .select("amount, category")
+      .eq("client_id", id)
+      .neq("category", "Booking Fee")
+      .gte("entry_date", yearStart);
+    setYtdSpend((ytd || []).reduce((s, e) => s + Number(e.amount), 0));
 
     // Last 6 months of total travel spend, for the trend line
     const months = [];
@@ -72,7 +87,7 @@ export default function Billing({ session }) {
     setTrend(byMonth);
   }
 
-  useEffect(() => { loadClientData(activeId); }, [activeId]);
+  useEffect(() => { loadClientData(activeId); }, [activeId, viewMonth]);
 
   const travelSpend = expenses.filter((e) => e.category !== "Booking Fee").reduce((s, e) => s + Number(e.amount), 0);
   const feesCollected = expenses.reduce((s, e) => s + Number(e.fee), 0);
@@ -115,11 +130,11 @@ export default function Billing({ session }) {
       category: entryForm.category,
       amount,
       fee,
-      entry_date: localDateStr(),
+      entry_date: entryForm.date || localDateStr(),
       created_by: session.user.email,
     });
     await logActivity(session, `logged a $${amount.toLocaleString()} ${entryForm.category} entry for ${entryForm.traveler} at ${active.company_name} ($${fee} fee).`);
-    setEntryForm({ traveler: "", category: "Flight", amount: "", fee: "" });
+    setEntryForm({ traveler: "", category: "Flight", amount: "", fee: "", date: localDateStr() });
     loadClientData(activeId);
   }
 
@@ -189,14 +204,29 @@ export default function Billing({ session }) {
               <div className="dtop">
                 <div>
                   <div className="dname">{active.company_name}</div>
-                  <div className="dmeta">{active.client_number} &middot; Authorized: {active.authorized_person || "—"} &middot; {active.contact_phone || "—"}</div>
+                  <div className="dmeta">
+                    {active.client_number} &middot; Authorized: {active.authorized_person || "—"} &middot; {active.contact_phone || "—"}
+                    {active.authorized_email ? ` · ${active.authorized_email}` : ""}
+                  </div>
                 </div>
-                <span className="plan-tag">{active.plan_tier} plan</span>
+                <div style={{ textAlign: "right" }}>
+                  <span className="plan-tag" style={{ cursor: "pointer" }} onClick={() => setShowPlanModal(true)}>
+                    {active.plan_tier} plan · ${planByKey(active.plan_tier).retainer.toLocaleString()}/mo
+                  </span>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="ghost" onClick={() => setViewMonth(prevMonthKey(viewMonth))}>&larr;</button>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--navy)" }}>{monthLabel(viewMonth)}</span>
+                    <button className="ghost" onClick={() => setViewMonth(nextMonthKey(viewMonth))}>&rarr;</button>
+                    {viewMonth !== currentMonthKey() && (
+                      <button className="ghost" onClick={() => setViewMonth(currentMonthKey())}>Today</button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="bar-wrap">
                 <div className="bar-label">
-                  <span>Monthly travel spend (vs threshold)</span>
+                  <span>Travel spend — {monthLabel(viewMonth)} (vs threshold)</span>
                   <span style={{ color: st.c, fontWeight: 700 }}>{pct}% used &middot; {st.label}</span>
                 </div>
                 <div className="bar-track"><div className="bar-fill" style={{ width: `${Math.min(pct, 100)}%`, background: st.c }} /></div>
@@ -212,6 +242,7 @@ export default function Billing({ session }) {
                   </button>
                 </div>
                 <div className="account-box"><div className="l">Booking fees this month</div><div className="v">${feesCollected.toLocaleString()}</div></div>
+                <div className="account-box"><div className="l">Year-to-date travel spend</div><div className="v">${ytdSpend.toLocaleString()}</div></div>
               </div>
 
               <div className="section-label">Cost breakdown (this month)</div>
@@ -255,6 +286,7 @@ export default function Billing({ session }) {
                   </select>
                 </div>
                 <div><label>Amount</label><input type="number" value={entryForm.amount} onChange={(e) => setEntryForm({ ...entryForm, amount: e.target.value })} /></div>
+                <div><label>Date</label><input type="date" value={entryForm.date} onChange={(e) => setEntryForm({ ...entryForm, date: e.target.value })} /></div>
                 <div><label>Fee (suggested {suggestedFee(active.plan_tier, entryForm.category)})</label>
                   <input type="number" placeholder={String(suggestedFee(active.plan_tier, entryForm.category))} value={entryForm.fee} onChange={(e) => setEntryForm({ ...entryForm, fee: e.target.value })} />
                 </div>
@@ -279,10 +311,37 @@ export default function Billing({ session }) {
 
               <button className="navy" style={{ marginTop: 16 }} onClick={generateReport}>Generate report preview</button>
               {reportHtml && <div className="report-preview" dangerouslySetInnerHTML={{ __html: reportHtml }} />}
+
+              <div style={{ marginTop: 24, borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+                <ClientNotes clientId={activeId} session={session} />
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      <Modal open={showPlanModal} onClose={() => setShowPlanModal(false)}>
+        {active && (() => {
+          const p = planByKey(active.plan_tier);
+          return (
+            <>
+              <h3>{p.label} plan</h3>
+              <div className="modal-sub">{p.tagline}</div>
+              <table className="k" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr><td className="cnum">Monthly retainer</td><td>${p.retainer.toLocaleString()}</td></tr>
+                  <tr><td className="cnum">Traveler cap</td><td>{p.travelerCap === Infinity ? "No cap" : p.travelerCap}</td></tr>
+                  <tr><td className="cnum">Flight booking fee</td><td>${p.flightRate}</td></tr>
+                  <tr><td className="cnum">Hotel / car booking fee</td><td>${p.otherRate}</td></tr>
+                </tbody>
+              </table>
+              <div className="modal-actions">
+                <button className="ghost" onClick={() => setShowPlanModal(false)}>Close</button>
+              </div>
+            </>
+          );
+        })()}
+      </Modal>
 
       <Modal open={!!editingEntry} onClose={() => setEditingEntry(null)}>
         {editingEntry && (
