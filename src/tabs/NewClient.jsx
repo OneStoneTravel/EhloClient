@@ -8,6 +8,7 @@ export default function NewClient({ session }) {
     client_number: "",
     plan_tier: "Starter",
     authorized_person: "",
+    authorized_email: "",
     contact_phone: "",
     date_joined: localDateStr(),
     monthly_threshold: 5000,
@@ -41,6 +42,7 @@ export default function NewClient({ session }) {
         client_number: form.client_number || null,
         plan_tier: form.plan_tier,
         authorized_person: form.authorized_person || null,
+        authorized_email: form.authorized_email || null,
         contact_phone: form.contact_phone || null,
         date_joined: form.date_joined,
         monthly_threshold: parseFloat(form.monthly_threshold) || 0,
@@ -64,7 +66,7 @@ export default function NewClient({ session }) {
 
     setStatus({ ok: true, msg: `${form.company_name} was created.` });
     setForm({
-      company_name: "", client_number: "", plan_tier: "Starter", authorized_person: "",
+      company_name: "", client_number: "", plan_tier: "Starter", authorized_person: "", authorized_email: "",
       contact_phone: "", date_joined: localDateStr(), monthly_threshold: 5000, retainer_due_day: 1,
     });
     setTravelerList([]);
@@ -78,6 +80,7 @@ export default function NewClient({ session }) {
           <div><label>Company name</label><input required value={form.company_name} onChange={set("company_name")} placeholder="Valley Health Staffing" /></div>
           <div><label>Client number</label><input value={form.client_number} onChange={set("client_number")} placeholder="OS-1005-C" /></div>
           <div><label>Authorized contact</label><input value={form.authorized_person} onChange={set("authorized_person")} placeholder="Priya Nair" /></div>
+          <div><label>Authorized contact email</label><input type="email" value={form.authorized_email} onChange={set("authorized_email")} placeholder="priya@client.com" /></div>
           <div><label>Contact phone</label><input value={form.contact_phone} onChange={set("contact_phone")} placeholder="(602) 555-0142" /></div>
           <div><label>Client since</label><input type="date" value={form.date_joined} onChange={set("date_joined")} /></div>
           <div><label>Monthly threshold ($)</label><input type="number" step="1" value={form.monthly_threshold} onChange={set("monthly_threshold")} /></div>
