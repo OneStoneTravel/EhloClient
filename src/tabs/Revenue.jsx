@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, monthLabel, prevMonthKey, barChart, logActivity, fetchExpenseTotals } from "../shared";
+import { planByKey, monthLabel, prevMonthKey, nextMonthKey, barChart, logActivity, fetchExpenseTotals, clientActiveInMonth } from "../shared";
 
 export default function Revenue({ session }) {
   const [clients, setClients] = useState([]);
@@ -51,6 +51,7 @@ export default function Revenue({ session }) {
   function aggregateOver(scopeMonths) {
     return clients.reduce((acc, c) => {
       scopeMonths.forEach((m) => {
+        if (!clientActiveInMonth(c, m)) return;
         const s = clientMonthStats(c, m);
         acc.flightVol += s.flightVol;
         acc.fees += s.fees;
@@ -70,6 +71,7 @@ export default function Revenue({ session }) {
 
   const monthlyRevenue = months.map((m) =>
     clients.reduce((s, c) => {
+      if (!clientActiveInMonth(c, m)) return s;
       const st = clientMonthStats(c, m);
       return s + st.fees + (st.paid ? st.retainerAmt : 0);
     }, 0)
@@ -77,6 +79,7 @@ export default function Revenue({ session }) {
 
   function clientTotalRevenue(client, scopeMonths) {
     return scopeMonths.reduce((s, m) => {
+      if (!clientActiveInMonth(client, m)) return s;
       const st = clientMonthStats(client, m);
       return s + st.fees + (st.paid ? st.retainerAmt : 0);
     }, 0);
@@ -90,10 +93,11 @@ export default function Revenue({ session }) {
   const monthHL = highLow([currentMonth]);
   const yearHL = highLow(months);
 
-  const unpaidThisMonth = clients.filter((c) => !clientMonthStats(c, currentMonth).paid);
+  const unpaidThisMonth = clients.filter((c) => clientActiveInMonth(c, currentMonth) && !clientMonthStats(c, currentMonth).paid);
 
-  // Predictable revenue next month — assumes every client's retainer gets paid again
-  const predictableNextMonth = clients.reduce((s, c) => s + retainerForClient(c), 0);
+  // Predictable revenue next month — only counts clients still expected to be with us then
+  const nextMonthStr = nextMonthKey(currentMonth);
+  const predictableNextMonth = clients.reduce((s, c) => clientActiveInMonth(c, nextMonthStr) ? s + retainerForClient(c) : s, 0);
 
   // Average revenue per client, scoped to whichever view is active
   const avgRevenuePerClient = clients.length > 0 ? totalRevenue / clients.length : 0;
