@@ -29,7 +29,7 @@ function Login() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={handleSubmit}>
-        <div className="knox-logo login-logo">Ehlo</div>
+        <div className="knox-logo login-logo">Ehl<span>o</span></div>
         <p className="sub">OneStone Client Accounts</p>
         <label>Email</label>
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
@@ -78,7 +78,7 @@ function EhloShell({ session }) {
       <div className="knoxbar">
         <div className="knoxbar-inner">
           <div>
-            <div className="knox-logo">Ehlo</div>
+            <div className="knox-logo">Ehl<span>o</span></div>
             <div className="knox-sub">OneStone Client Accounts</div>
           </div>
           <div className="knox-user">
