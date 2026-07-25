@@ -1,0 +1,93 @@
+EHLO CLIENT — SETUP INSTRUCTIONS
+=================================
+
+This is a brand NEW project, separate from Knox Tracker's GitHub repo and
+Vercel project — but it connects to the SAME Supabase project/database as
+Knox Tracker, so client data stays in sync between the two.
+
+-----------------------------------------------------------------
+STEP 1 — Run the SQL in Supabase (the SAME Supabase project Knox uses)
+-----------------------------------------------------------------
+Go to your existing Supabase project → SQL Editor → New query → paste and
+run the contents of:
+
+    supabase/migrations/0001_ehlo_tables.sql
+
+This creates Ehlo's own tables (client_expenses, retainer_payments,
+timesheets, activity_log) and locks them to owners only. It also updates
+the "profiles" table policies so owners can see/manage every staff
+member's role from the Team tab.
+
+Quick check: Table Editor → confirm you now see client_expenses,
+retainer_payments, timesheets, and activity_log listed.
+
+-----------------------------------------------------------------
+STEP 2 — Create a new GitHub repository
+-----------------------------------------------------------------
+1. Go to github.com → New repository → name it "ehlo-client" → Create
+   repository.
+2. On the empty repo page, click "uploading an existing file".
+3. Unzip ehlo-client.zip on your computer.
+4. Open the unzipped "ehlo-client" folder and drag EVERYTHING inside it
+   (not the outer folder itself) into GitHub's upload box — this
+   includes the "src" folder, "supabase" folder, package.json,
+   index.html, vite.config.js, .gitignore, .env.example, everything.
+5. Scroll down, click "Commit changes".
+
+IMPORTANT — GitHub sometimes uploads folders as flat files instead of
+keeping the folder structure. After uploading, check that your repo
+shows folders named "src", "src/tabs", and "supabase/migrations" — not
+all the files sitting loose at the top level. If they land flat, you'll
+need to rename each file to include its folder path (e.g. rename
+"App.jsx" to "src/App.jsx") the same way we fixed this for Knox Tracker.
+
+-----------------------------------------------------------------
+STEP 3 — Create a new Vercel project
+-----------------------------------------------------------------
+1. Go to vercel.com → Add New → Project.
+2. Find "ehlo-client" in your GitHub repos → Import.
+3. Before deploying, add Environment Variables:
+     VITE_SUPABASE_URL      = (same Supabase Project URL Knox Tracker uses)
+     VITE_SUPABASE_ANON_KEY = (same Supabase anon/publishable key Knox Tracker uses)
+   These are THE SAME values you used when setting up Knox Tracker —
+   copy them from that project's Vercel settings if you don't have them
+   handy, or from Supabase → Project Settings → API.
+4. Click Deploy.
+5. Once deployed, optionally rename the project (Settings → General →
+   Project Name) to get a cleaner URL like "ehloclient.vercel.app".
+
+-----------------------------------------------------------------
+STEP 4 — Test it
+-----------------------------------------------------------------
+1. Open your new Ehlo Client URL.
+2. Log in with YOUR email/password (the same one you use for Knox
+   Tracker — since it's the same Supabase project, the same login
+   works across both).
+3. You should land on the tab bar with all 10 tabs.
+4. Try logging into Ehlo with a REGULAR STAFF account (not you or Mary)
+   — it should show "Not authorized" instead of the dashboard. That
+   confirms the owner-only gate is working.
+5. Go to Directory — you should see the 4 seeded clients (Mikes
+   Trucking, Valley Health Staffing, Kestrel Capital, Titan Sports
+   Group) already there from Knox Tracker's earlier migration.
+6. Try New Client — create a test company, then check Knox Tracker's
+   Add Trip form — the new company should now appear in that dropdown
+   too. That's the sync working.
+7. Try Billing — pick a client, log a test expense, toggle the retainer
+   paid button, and check the threshold bar changes color correctly.
+8. Check History — your test actions should show up there with your
+   name and a timestamp.
+
+-----------------------------------------------------------------
+NOTES
+-----------------------------------------------------------------
+- Adding a brand-new STAFF LOGIN (not just changing someone's role)
+  still happens in Supabase → Authentication → Users → Add user, same
+  as always. The Team tab only changes an EXISTING login's role between
+  "staff" and "owner".
+- The database automatically tags any newly created login as "staff"
+  by default — you'd only need to visit Team to promote someone to
+  "owner" if that ever comes up.
+- Revenue, Expense, and Proration all read from real logged data, so
+  they'll look empty/zero until you've logged some expenses and
+  retainer payments through Billing.
