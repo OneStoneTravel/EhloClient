@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel, fetchExpenseTotals } from "../shared";
+import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel, fetchExpenseTotals, clientActiveInMonth } from "../shared";
 
 export default function Home({ session, onNavigate }) {
   const [clients, setClients] = useState([]);
@@ -46,7 +46,7 @@ export default function Home({ session, onNavigate }) {
   const totalRevenueThisMonth = retainerPaid + feesThisMonth;
   const profit = totalRevenueThisMonth - expenseTotal;
   const unpaidClients = clients
-    .filter((c) => !retainers.find((r) => r.client_id === c.id)?.paid)
+    .filter((c) => clientActiveInMonth(c, month) && !retainers.find((r) => r.client_id === c.id)?.paid)
     .map((c) => ({ ...c, due: dueStatus(daysUntilDue(c.retainer_due_day)) }))
     .sort((a, b) => daysUntilDue(a.retainer_due_day) - daysUntilDue(b.retainer_due_day));
 
