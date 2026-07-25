@@ -94,6 +94,21 @@ export function barChart(values, labels) {
   return `<svg width="${w}" height="${h + 18}" viewBox="0 0 ${w} ${h + 18}" style="overflow:visible;">${bars}</svg>`;
 }
 
+export function daysUntilDue(dueDay) {
+  const now = new Date();
+  const day = dueDay || 1;
+  const due = new Date(now.getFullYear(), now.getMonth(), day);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((due - today) / 86400000);
+}
+
+export function dueStatus(days) {
+  if (days < 0) return { label: `Overdue by ${Math.abs(days)}d`, color: "var(--red)", urgent: true };
+  if (days === 0) return { label: "Due today", color: "var(--red)", urgent: true };
+  if (days <= 5) return { label: `Due in ${days}d`, color: "var(--amber)", urgent: true };
+  return { label: `Due in ${days}d`, color: "var(--ink-soft)", urgent: false };
+}
+
 export async function logActivity(session, action) {
   await supabase.from("activity_log").insert({
     actor_email: session?.user?.email || "unknown",
