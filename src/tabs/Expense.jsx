@@ -146,6 +146,10 @@ export default function Expense({ session }) {
         <div className="rev-card"><div className="l">Payroll — year to date</div><div className="v">${payrollYtd.toLocaleString()}</div></div>
         <div className="rev-card accent"><div className="l">Total operating expenses — {monthLabel(viewMonth)}</div><div className="v">${(total + payrollMonth).toLocaleString()}</div></div>
       </div>
+      <p className="muted" style={{ marginTop: 10, marginBottom: 18 }}>
+        Payroll is calculated automatically from hours logged in the Time tab × each staff member's hourly rate (set in Team/Users) —
+        no need to enter it manually here. The "Payroll (one-off)" category below is only for exceptions like bonuses or contractor payments.
+      </p>
       <div className="rev-cards">
         <div className="rev-card">
           <div className="l">Payroll as % of total expense</div>
@@ -155,12 +159,8 @@ export default function Expense({ session }) {
 
       <div className="section-label">Reports</div>
       <button className="navy" onClick={printPayrollReport}>Print payroll report — {monthLabel(viewMonth)}</button>
-      <p className="muted" style={{ marginTop: -8, marginBottom: 18 }}>
-        Payroll is calculated automatically from hours logged in the Time tab × each staff member's hourly rate (set in Team/Users) —
-        no need to enter it manually here. The "Payroll (one-off)" category below is only for exceptions like bonuses or contractor payments.
-      </p>
 
-      <div className="section-label">By category</div>
+      <div className="section-label" style={{ marginTop: 24 }}>By category</div>
       {byCategory.length === 0 ? (
         <div className="empty">No expenses logged for {monthLabel(viewMonth)} yet.</div>
       ) : (
