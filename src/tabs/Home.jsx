@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, statusColor, currentMonthKey, monthLabel } from "../shared";
+import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel } from "../shared";
 
 export default function Home({ session, onNavigate }) {
   const [clients, setClients] = useState([]);
@@ -34,7 +34,10 @@ export default function Home({ session, onNavigate }) {
   }, 0);
   const feesThisMonth = expenses.reduce((s, e) => s + Number(e.fee), 0);
   const travelSpend = expenses.filter((e) => e.category !== "Booking Fee").reduce((s, e) => s + Number(e.amount), 0);
-  const unpaidClients = clients.filter((c) => !retainers.find((r) => r.client_id === c.id)?.paid);
+  const unpaidClients = clients
+    .filter((c) => !retainers.find((r) => r.client_id === c.id)?.paid)
+    .map((c) => ({ ...c, due: dueStatus(daysUntilDue(c.retainer_due_day)) }))
+    .sort((a, b) => daysUntilDue(a.retainer_due_day) - daysUntilDue(b.retainer_due_day));
 
   const clientAlerts = clients.map((c) => {
     const spend = expenses.filter((e) => e.client_id === c.id && e.category !== "Booking Fee").reduce((s, e) => s + Number(e.amount), 0);
@@ -42,8 +45,17 @@ export default function Home({ session, onNavigate }) {
     return { ...c, pct };
   }).filter((c) => c.pct >= 75).sort((a, b) => b.pct - a.pct);
 
+  const urgentCount = unpaidClients.filter((c) => c.due.urgent).length;
+
   return (
     <div>
+      {urgentCount > 0 && (
+        <div className="panel" style={{ background: "var(--red-bg)", borderColor: "#E3B3AA" }}>
+          <div style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
+            {urgentCount} retainer{urgentCount === 1 ? "" : "s"} due soon or overdue — see below.
+          </div>
+        </div>
+      )}
       <div className="panel">
         <h2>Overview — {monthLabel(month)}</h2>
         <div className="rev-cards">
@@ -86,10 +98,14 @@ export default function Home({ session, onNavigate }) {
         ) : (
           <div className="tbl-wrap">
             <table className="k">
-              <thead><tr><th>Client</th><th>Amount owed</th></tr></thead>
+              <thead><tr><th>Client</th><th>Amount owed</th><th>Due status</th></tr></thead>
               <tbody>
                 {unpaidClients.map((c) => (
-                  <tr key={c.id}><td className="cnum">{c.company_name}</td><td>${retainerForClient(c).toLocaleString()}</td></tr>
+                  <tr key={c.id}>
+                    <td className="cnum">{c.company_name}</td>
+                    <td>${retainerForClient(c).toLocaleString()}</td>
+                    <td style={{ color: c.due.color, fontWeight: c.due.urgent ? 700 : 400 }}>{c.due.label}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
