@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { PLAN_TIERS, tenureLabel, logActivity } from "../shared";
+import { PLAN_TIERS, tenureLabel, daysUntilDue, dueStatus, logActivity } from "../shared";
 import Modal from "../Modal";
 
 export default function Directory({ session }) {
@@ -37,6 +37,7 @@ export default function Directory({ session }) {
       monthly_threshold: parseFloat(editForm.monthly_threshold) || 0,
       contact_phone: editForm.contact_phone,
       authorized_person: editForm.authorized_person,
+      retainer_due_day: parseInt(editForm.retainer_due_day) || 1,
     }).eq("id", editing.id);
 
     if (!error) {
@@ -60,12 +61,12 @@ export default function Directory({ session }) {
           <thead>
             <tr>
               <th>Client #</th><th>Company</th><th>Plan</th><th>Authorized contact</th>
-              <th>Phone</th><th>Client tenure</th><th>Travelers</th><th></th>
+              <th>Phone</th><th>Client tenure</th><th>Retainer due</th><th>Travelers</th><th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} className="empty">No clients found.</td></tr>
+              <tr><td colSpan={9} className="empty">No clients found.</td></tr>
             ) : (
               filtered.map((c) => (
                 <tr key={c.id}>
@@ -75,6 +76,12 @@ export default function Directory({ session }) {
                   <td>{c.authorized_person || "—"}</td>
                   <td className="muted">{c.contact_phone || "—"}</td>
                   <td className="muted">{tenureLabel(c.date_joined)}</td>
+                  <td>
+                    {(() => {
+                      const d = dueStatus(daysUntilDue(c.retainer_due_day));
+                      return <span style={{ color: d.color, fontWeight: d.urgent ? 700 : 400, fontSize: 12 }}>{d.label}</span>;
+                    })()}
+                  </td>
                   <td className="muted">{travelerCounts[c.id] || 0}</td>
                   <td><button className="ghost" onClick={() => openEdit(c)}>Edit</button></td>
                 </tr>
@@ -95,6 +102,8 @@ export default function Directory({ session }) {
             </select>
             <label>Monthly threshold ($)</label>
             <input type="number" value={editForm.monthly_threshold} onChange={(e) => setEditForm({ ...editForm, monthly_threshold: e.target.value })} />
+            <label>Retainer due day (day of month)</label>
+            <input type="number" min="1" max="28" value={editForm.retainer_due_day || 1} onChange={(e) => setEditForm({ ...editForm, retainer_due_day: e.target.value })} />
             <label>Authorized contact</label>
             <input value={editForm.authorized_person || ""} onChange={(e) => setEditForm({ ...editForm, authorized_person: e.target.value })} />
             <label>Contact phone</label>
