@@ -8,18 +8,20 @@ export default function Home({ session, onNavigate }) {
   const [expenses, setExpenses] = useState([]);
   const [activity, setActivity] = useState([]);
   const [expenseTotal, setExpenseTotal] = useState(0);
+  const [staffName, setStaffName] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const month = currentMonthKey();
 
   useEffect(() => {
     async function load() {
-      const [clientsRes, retainersRes, expensesRes, activityRes, expTotals] = await Promise.all([
+      const [clientsRes, retainersRes, expensesRes, activityRes, expTotals, staffRes] = await Promise.all([
         supabase.from("clients").select("*"),
         supabase.from("retainer_payments").select("*").eq("month", month),
         supabase.from("client_expenses").select("*").gte("entry_date", month),
         supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8),
         fetchExpenseTotals([month]),
+        supabase.from("staff").select("full_name").eq("login_email", session.user.email).maybeSingle(),
       ]);
 
       setClients(clientsRes.data || []);
@@ -27,6 +29,7 @@ export default function Home({ session, onNavigate }) {
       setExpenses((expensesRes.data || []).filter((row) => row.entry_date.slice(0, 7) === month.slice(0, 7)));
       setActivity(activityRes.data || []);
       setExpenseTotal(expTotals.total);
+      setStaffName(staffRes.data?.full_name || null);
       setLoading(false);
     }
     load();
@@ -58,8 +61,20 @@ export default function Home({ session, onNavigate }) {
 
   const urgentCount = unpaidClients.filter((c) => c.due.urgent).length;
 
+  function greeting() {
+    const hour = new Date().getHours();
+    const name = staffName ? staffName.split(" ")[0] : session.user.email.split("@")[0];
+    if (hour >= 5 && hour < 12) return `Good morning, ${name}`;
+    if (hour >= 12 && hour < 17) return `Good afternoon, ${name}`;
+    if (hour >= 17 && hour < 21) return `Good evening, ${name}`;
+    return `Have a good night, ${name}`;
+  }
+
   return (
     <div>
+      <div className="panel" style={{ textAlign: "center", padding: "26px 20px" }}>
+        <div style={{ fontFamily: "'Fraunces',Georgia,serif", fontSize: 22, color: "var(--navy)", fontWeight: 600 }}>{greeting()}</div>
+      </div>
       {urgentCount > 0 && (
         <div className="panel" style={{ background: "var(--red-bg)", borderColor: "#E3B3AA" }}>
           <div style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
