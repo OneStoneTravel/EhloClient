@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, monthLabel, prevMonthKey, barChart, logActivity } from "../shared";
+import { planByKey, monthLabel, prevMonthKey, barChart, logActivity, fetchExpenseTotals } from "../shared";
 
 export default function Revenue({ session }) {
   const [clients, setClients] = useState([]);
@@ -30,6 +30,13 @@ export default function Revenue({ session }) {
 
   useEffect(() => { load(); }, []);
 
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  useEffect(() => {
+    if (months.length === 0) return;
+    const scope = view === "month" ? [months[months.length - 1]] : months;
+    fetchExpenseTotals(scope).then((t) => setExpenseTotal(t.total));
+  }, [view, months]);
+
   const currentMonth = months[months.length - 1] || "";
   const retainerForClient = (c) => planByKey(c.plan_tier).retainer;
 
@@ -58,6 +65,7 @@ export default function Revenue({ session }) {
   const ytdAgg = aggregateOver(months);
   const agg = view === "month" ? thisMonthAgg : ytdAgg;
   const totalRevenue = agg.fees + agg.retainerCollected;
+  const profit = totalRevenue - expenseTotal;
   const pctCollected = agg.retainerExpected > 0 ? Math.round((agg.retainerCollected / agg.retainerExpected) * 100) : 0;
 
   const monthlyRevenue = months.map((m) =>
@@ -179,6 +187,8 @@ export default function Revenue({ session }) {
         <tr><td>Retainers collected</td><td>$${agg.retainerCollected.toLocaleString()}</td></tr>
         <tr><td>Booking fees collected</td><td>$${agg.fees.toLocaleString()}</td></tr>
         <tr><td><b>Total revenue</b></td><td><b>$${totalRevenue.toLocaleString()}</b></td></tr>
+        <tr><td>Operating expenses</td><td>$${expenseTotal.toLocaleString()}</td></tr>
+        <tr><td><b>Profit</b></td><td><b>$${profit.toLocaleString()}</b></td></tr>
       </table>
       <h1 style="font-size:16px;">Revenue by client</h1>
       <table>
@@ -215,6 +225,13 @@ export default function Revenue({ session }) {
         <div className="rev-card"><div className="l">Booking fees collected</div><div className="v">${agg.fees.toLocaleString()}</div></div>
         <div className="rev-card"><div className="l">Retainers collected</div><div className="v">${agg.retainerCollected.toLocaleString()}</div></div>
         <div className="rev-card accent"><div className="l">Total OneStone revenue (fees + retainers)</div><div className="v">${totalRevenue.toLocaleString()}</div></div>
+      </div>
+      <div className="rev-cards">
+        <div className="rev-card"><div className="l">Operating expenses ({view === "month" ? "this month" : "YTD"})</div><div className="v">${expenseTotal.toLocaleString()}</div></div>
+        <div className="rev-card" style={{ background: profit >= 0 ? "var(--green-bg)" : "var(--red-bg)", borderColor: profit >= 0 ? "#B9DAC5" : "#E3B3AA" }}>
+          <div className="l">Profit ({view === "month" ? "this month" : "YTD"})</div>
+          <div className="v" style={{ color: profit >= 0 ? "var(--green)" : "var(--red)" }}>${profit.toLocaleString()}</div>
+        </div>
       </div>
       <p className="muted" style={{ fontStyle: "italic", marginTop: -8, marginBottom: 20 }}>
         Flight volume is client spend processed on their behalf, not OneStone revenue — shown separately from actual OneStone revenue (fees + retainers) above.
