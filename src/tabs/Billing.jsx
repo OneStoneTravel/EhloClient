@@ -11,6 +11,7 @@ export default function Billing({ session }) {
   const [clients, setClients] = useState([]);
   const [travelers, setTravelers] = useState([]);
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [retainerRow, setRetainerRow] = useState(null);
@@ -162,9 +163,9 @@ export default function Billing({ session }) {
     `);
   }
 
-  const filteredClients = clients.filter((c) =>
-    !search || (c.company_name + (c.client_number || "")).toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredClients = clients
+    .filter((c) => showInactive || c.status !== "inactive")
+    .filter((c) => !search || (c.company_name + (c.client_number || "")).toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="panel">
@@ -172,10 +173,13 @@ export default function Billing({ session }) {
       <div className="layout">
         <div>
           <input className="search-input" placeholder="Search client..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button className="ghost" style={{ marginTop: 8, width: "100%" }} onClick={() => setShowInactive(!showInactive)}>
+            {showInactive ? "Hide inactive clients" : "Show inactive clients"}
+          </button>
           <div className="list">
             {filteredClients.map((c) => (
               <div key={c.id} className={`card-row ${c.id === activeId ? "active" : ""}`} onClick={() => setActiveId(c.id)}>
-                <div className="row-name">{c.company_name}</div>
+                <div className="row-name">{c.company_name}{c.status === "inactive" ? " (inactive)" : ""}</div>
                 <div className="row-num">{c.client_number}</div>
               </div>
             ))}
