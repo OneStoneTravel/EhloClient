@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import Home from "./tabs/Home";
 import NewClient from "./tabs/NewClient";
 import Directory from "./tabs/Directory";
 import Billing from "./tabs/Billing";
@@ -58,6 +59,7 @@ function AccessDenied({ email }) {
 }
 
 const TABS = [
+  { key: "home", label: "🏠" },
   { key: "newclient", label: "New Client +" },
   { key: "directory", label: "Directory" },
   { key: "billing", label: "Billing" },
@@ -71,7 +73,7 @@ const TABS = [
 ];
 
 function EhloShell({ session }) {
-  const [tab, setTab] = useState("directory");
+  const [tab, setTab] = useState("home");
 
   return (
     <div>
@@ -91,12 +93,18 @@ function EhloShell({ session }) {
       <div className="wrap">
         <div className="tab-bar">
           {TABS.map((t) => (
-            <button key={t.key} className={`tab-btn ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
+            <button
+              key={t.key}
+              className={`tab-btn ${tab === t.key ? "active" : ""}`}
+              style={t.key === "home" ? { fontSize: 17 } : undefined}
+              onClick={() => setTab(t.key)}
+            >
               {t.label}
             </button>
           ))}
         </div>
 
+        {tab === "home" && <Home session={session} onNavigate={setTab} />}
         {tab === "newclient" && <NewClient session={session} />}
         {tab === "directory" && <Directory session={session} />}
         {tab === "billing" && <Billing session={session} />}
