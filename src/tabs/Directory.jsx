@@ -26,6 +26,11 @@ export default function Directory({ session }) {
     setEditForm({ ...c });
   }
 
+  function closeEdit() {
+    setEditing(null);
+    setEditForm(null);
+  }
+
   async function saveEdit() {
     const { error } = await supabase.from("clients").update({
       plan_tier: editForm.plan_tier,
@@ -36,7 +41,7 @@ export default function Directory({ session }) {
 
     if (!error) {
       await logActivity(session, `updated account details for ${editing.company_name}.`);
-      setEditing(null);
+      closeEdit();
       load();
     }
   }
@@ -79,8 +84,8 @@ export default function Directory({ session }) {
         </table>
       </div>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)}>
-        {editForm && (
+      <Modal open={!!editing} onClose={closeEdit}>
+        {editing && editForm && (
           <>
             <h3>Edit {editing.company_name}</h3>
             <div className="modal-sub">Updates apply immediately across Ehlo and Knox Tracker.</div>
@@ -95,7 +100,7 @@ export default function Directory({ session }) {
             <label>Contact phone</label>
             <input value={editForm.contact_phone || ""} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
+              <button className="ghost" onClick={closeEdit}>Cancel</button>
               <button onClick={saveEdit}>Save</button>
             </div>
           </>
