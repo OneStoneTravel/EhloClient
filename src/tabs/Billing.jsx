@@ -18,6 +18,7 @@ export default function Billing({ session }) {
   const [editingEntry, setEditingEntry] = useState(null);
   const [editForm, setEditForm] = useState({ amount: "", fee: "" });
   const [reportHtml, setReportHtml] = useState(null);
+  const [prorationDate, setProrationDate] = useState(localDateStr());
   const [viewMonth, setViewMonth] = useState(currentMonthKey());
   const [ytdSpend, setYtdSpend] = useState(0);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -244,6 +245,31 @@ export default function Billing({ session }) {
                 <div className="account-box"><div className="l">Booking fees this month</div><div className="v">${feesCollected.toLocaleString()}</div></div>
                 <div className="account-box"><div className="l">Year-to-date travel spend</div><div className="v">${ytdSpend.toLocaleString()}</div></div>
               </div>
+
+              <div className="section-label">Proration calculator</div>
+              <p className="muted" style={{ marginTop: -4 }}>Figures out {active.company_name}'s first prorated retainer charge based on a given start date.</p>
+              {(() => {
+                const retainer = planByKey(active.plan_tier).retainer;
+                const [py, pm, pd] = prorationDate.split("-").map(Number);
+                const daysInMonth = new Date(py, pm, 0).getDate();
+                const daysRemaining = daysInMonth - pd + 1;
+                const prorated = retainer * (daysRemaining / daysInMonth);
+                return (
+                  <>
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 12 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10.5, textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 4 }}>Start date</label>
+                        <input type="date" value={prorationDate} onChange={(e) => setProrationDate(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="rev-cards" style={{ marginBottom: 20 }}>
+                      <div className="rev-card"><div className="l">Full monthly retainer</div><div className="v">${retainer.toLocaleString()}</div></div>
+                      <div className="rev-card"><div className="l">Days remaining in month</div><div className="v">{daysRemaining} of {daysInMonth}</div></div>
+                      <div className="rev-card accent"><div className="l">Prorated first charge</div><div className="v">${prorated.toFixed(2)}</div></div>
+                    </div>
+                  </>
+                );
+              })()}
 
               <div className="section-label">Cost breakdown (this month)</div>
               <table className="k">
