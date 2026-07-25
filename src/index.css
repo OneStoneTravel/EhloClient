@@ -73,7 +73,7 @@ button.ghost:hover{color:var(--wine);border-color:var(--wine);background:none}
 button.navy{background:var(--navy)}
 button.navy:hover{background:var(--navy-deep)}
 
-.tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(15,26,48,.04)}
+.tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto;overflow-y:hidden;box-shadow:0 1px 2px rgba(15,26,48,.04)}
 table.k{width:100%;border-collapse:collapse;font-size:13px}
 table.k th{background:var(--navy);color:#fff;text-align:left;padding:11px 13px;font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
 table.k td{padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
