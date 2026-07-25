@@ -94,6 +94,18 @@ export function barChart(values, labels) {
   return `<svg width="${w}" height="${h + 18}" viewBox="0 0 ${w} ${h + 18}" style="overflow:visible;">${bars}</svg>`;
 }
 
+export function prevMonthKey(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+export function nextMonthKey(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
 export function daysUntilDue(dueDay) {
   const now = new Date();
   const day = dueDay || 1;
