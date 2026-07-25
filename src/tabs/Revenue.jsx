@@ -1,108 +1,232 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, currentMonthKey, monthLabel, barChart } from "../shared";
+import { planByKey, monthLabel, barChart, logActivity } from "../shared";
 
 export default function Revenue({ session }) {
   const [clients, setClients] = useState([]);
   const [retainers, setRetainers] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [months, setMonths] = useState([]);
+  const [view, setView] = useState("month"); // "month" | "ytd"
 
-  useEffect(() => {
-    async function load() {
-      const { data: c } = await supabase.from("clients").select("*");
-      setClients(c || []);
+  async function load() {
+    const { data: c } = await supabase.from("clients").select("*").order("company_name");
+    setClients(c || []);
 
-      const now = new Date();
-      const m = [];
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        m.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`);
-      }
-      setMonths(m);
-
-      const { data: r } = await supabase.from("retainer_payments").select("*").gte("month", m[0]);
-      setRetainers(r || []);
-
-      const { data: e } = await supabase.from("client_expenses").select("fee, entry_date").gte("entry_date", m[0]);
-      setExpenses(e || []);
+    const now = new Date();
+    const yearStart = `${now.getFullYear()}-01-01`;
+    const m = [];
+    for (let i = 0; i <= now.getMonth(); i++) {
+      m.push(`${now.getFullYear()}-${String(i + 1).padStart(2, "0")}-01`);
     }
-    load();
-  }, []);
+    setMonths(m);
 
-  const month = currentMonthKey();
+    const { data: r } = await supabase.from("retainer_payments").select("*").gte("month", yearStart);
+    setRetainers(r || []);
+    const { data: e } = await supabase.from("client_expenses").select("*").gte("entry_date", yearStart);
+    setExpenses(e || []);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  const currentMonth = months[months.length - 1] || "";
   const retainerForClient = (c) => planByKey(c.plan_tier).retainer;
 
-  const retainerPaidThisMonth = clients.reduce((s, c) => {
-    const row = retainers.find((r) => r.client_id === c.id && r.month === month);
-    return row?.paid ? s + retainerForClient(c) : s;
-  }, 0);
-  const retainerExpectedThisMonth = clients.reduce((s, c) => s + retainerForClient(c), 0);
-  const feesThisMonth = expenses.filter((e) => e.entry_date.slice(0, 7) === month.slice(0, 7)).reduce((s, e) => s + Number(e.fee), 0);
-  const totalThisMonth = retainerPaidThisMonth + feesThisMonth;
+  function clientMonthStats(client, monthKey) {
+    const rows = expenses.filter((e) => e.client_id === client.id && e.entry_date.slice(0, 7) === monthKey.slice(0, 7));
+    const flightVol = rows.filter((e) => e.category !== "Booking Fee").reduce((s, e) => s + Number(e.amount), 0);
+    const fees = rows.reduce((s, e) => s + Number(e.fee), 0);
+    const retRow = retainers.find((r) => r.client_id === client.id && r.month === monthKey);
+    return { flightVol, fees, retainerAmt: retainerForClient(client), paid: !!retRow?.paid };
+  }
 
-  const revenueByMonth = months.map((m) => {
-    const retainerSum = clients.reduce((s, c) => {
-      const row = retainers.find((r) => r.client_id === c.id && r.month === m);
-      return row?.paid ? s + retainerForClient(c) : s;
+  function aggregateOver(scopeMonths) {
+    return clients.reduce((acc, c) => {
+      scopeMonths.forEach((m) => {
+        const s = clientMonthStats(c, m);
+        acc.flightVol += s.flightVol;
+        acc.fees += s.fees;
+        acc.retainerExpected += s.retainerAmt;
+        acc.retainerCollected += s.paid ? s.retainerAmt : 0;
+      });
+      return acc;
+    }, { flightVol: 0, fees: 0, retainerExpected: 0, retainerCollected: 0 });
+  }
+
+  const thisMonthAgg = aggregateOver([currentMonth]);
+  const ytdAgg = aggregateOver(months);
+  const agg = view === "month" ? thisMonthAgg : ytdAgg;
+  const totalRevenue = agg.fees + agg.retainerCollected;
+  const pctCollected = agg.retainerExpected > 0 ? Math.round((agg.retainerCollected / agg.retainerExpected) * 100) : 0;
+
+  const monthlyRevenue = months.map((m) =>
+    clients.reduce((s, c) => {
+      const st = clientMonthStats(c, m);
+      return s + st.fees + (st.paid ? st.retainerAmt : 0);
+    }, 0)
+  );
+
+  function clientTotalRevenue(client, scopeMonths) {
+    return scopeMonths.reduce((s, m) => {
+      const st = clientMonthStats(client, m);
+      return s + st.fees + (st.paid ? st.retainerAmt : 0);
     }, 0);
-    const feeSum = expenses.filter((e) => e.entry_date.slice(0, 7) === m.slice(0, 7)).reduce((s, e) => s + Number(e.fee), 0);
-    return retainerSum + feeSum;
-  });
+  }
+  function highLow(scopeMonths) {
+    const list = clients.map((c) => ({ name: c.company_name, total: clientTotalRevenue(c, scopeMonths) })).filter((c) => c.total > 0);
+    if (list.length === 0) return { high: null, low: null };
+    const sorted = [...list].sort((a, b) => b.total - a.total);
+    return { high: sorted[0], low: sorted[sorted.length - 1] };
+  }
+  const monthHL = highLow([currentMonth]);
+  const yearHL = highLow(months);
 
-  const unpaidClients = clients.filter((c) => {
-    const row = retainers.find((r) => r.client_id === c.id && r.month === month);
-    return !row?.paid;
+  const unpaidThisMonth = clients.filter((c) => !clientMonthStats(c, currentMonth).paid);
+
+  // Predictable revenue next month — assumes every client's retainer gets paid again
+  const predictableNextMonth = clients.reduce((s, c) => s + retainerForClient(c), 0);
+
+  // Average revenue per client, scoped to whichever view is active
+  const avgRevenuePerClient = clients.length > 0 ? totalRevenue / clients.length : 0;
+
+  // Revenue by plan tier, scoped to whichever view is active
+  const scopeMonths = view === "month" ? [currentMonth] : months;
+  const tierGroups = {};
+  clients.forEach((c) => {
+    const tier = c.plan_tier;
+    tierGroups[tier] = tierGroups[tier] || { count: 0, revenue: 0 };
+    tierGroups[tier].count += 1;
+    tierGroups[tier].revenue += clientTotalRevenue(c, scopeMonths);
   });
+  const tierRows = Object.entries(tierGroups).sort((a, b) => b[1].revenue - a[1].revenue);
+
+  async function markPaid(client) {
+    const { error } = await supabase.from("retainer_payments").upsert({
+      client_id: client.id, month: currentMonth, paid: true, marked_by: session.user.email, marked_at: new Date().toISOString(),
+    }, { onConflict: "client_id,month" });
+    if (!error) {
+      await logActivity(session, `marked the ${monthLabel(currentMonth)} retainer as paid for ${client.company_name} (from Revenue).`);
+      load();
+    }
+  }
 
   return (
     <div className="panel">
       <h2>Revenue</h2>
 
-      <div className="rev-cards">
-        <div className="rev-card">
-          <div className="l">Retainer collected ({monthLabel(month)})</div>
-          <div className="v">${retainerPaidThisMonth.toLocaleString()}</div>
-        </div>
-        <div className="rev-card">
-          <div className="l">Retainer expected</div>
-          <div className="v">${retainerExpectedThisMonth.toLocaleString()}</div>
-        </div>
-        <div className="rev-card">
-          <div className="l">Booking fees this month</div>
-          <div className="v">${feesThisMonth.toLocaleString()}</div>
-        </div>
-        <div className="rev-card accent">
-          <div className="l">Total revenue this month</div>
-          <div className="v">${totalThisMonth.toLocaleString()}</div>
-        </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <button className={view === "month" ? "navy" : "ghost"} onClick={() => setView("month")}>
+          This month ({monthLabel(currentMonth).split(" ")[0]})
+        </button>
+        <button className={view === "ytd" ? "navy" : "ghost"} onClick={() => setView("ytd")}>
+          Year to date (Jan–{monthLabel(currentMonth).split(" ")[0]})
+        </button>
       </div>
 
-      <div className="section-label">Revenue by month (retainer + fees)</div>
-      <div dangerouslySetInnerHTML={{ __html: barChart(revenueByMonth, months.map(monthLabel)) }} />
+      <div className="rev-cards">
+        <div className="rev-card"><div className="l">Flight ticket volume processed</div><div className="v">${agg.flightVol.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Booking fees collected</div><div className="v">${agg.fees.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Retainers collected</div><div className="v">${agg.retainerCollected.toLocaleString()}</div></div>
+        <div className="rev-card accent"><div className="l">Total OneStone revenue (fees + retainers)</div><div className="v">${totalRevenue.toLocaleString()}</div></div>
+      </div>
+      <p className="muted" style={{ fontStyle: "italic", marginTop: -8, marginBottom: 20 }}>
+        Flight volume is client spend processed on their behalf, not OneStone revenue — shown separately from actual OneStone revenue (fees + retainers) above.
+        Retainer collection rate: <b style={{ color: "var(--navy)" }}>{pctCollected}%</b> of ${agg.retainerExpected.toLocaleString()} expected.
+      </p>
 
-      <div className="section-label">Outstanding retainers this month</div>
-      {unpaidClients.length === 0 ? (
-        <div className="empty">Everyone's paid up for {monthLabel(month)}.</div>
-      ) : (
-        <div className="tbl-wrap">
-          <table className="k">
-            <thead><tr><th>Client</th><th>Plan</th><th>Amount owed</th></tr></thead>
-            <tbody>
-              {unpaidClients.map((c) => (
+      <div className="section-label">Monthly OneStone revenue (fees + retainers), Jan–{monthLabel(currentMonth).split(" ")[0]}</div>
+      <div dangerouslySetInnerHTML={{ __html: barChart(monthlyRevenue, months.map(monthLabel), true) }} />
+
+      <div className="section-label">Additional metrics</div>
+      <div className="rev-cards">
+        <div className="rev-card"><div className="l">Predictable revenue next month (retainers only)</div><div className="v">${predictableNextMonth.toLocaleString()}</div></div>
+        <div className="rev-card"><div className="l">Average revenue per client ({view === "month" ? "this month" : "YTD"})</div><div className="v">${avgRevenuePerClient.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+      </div>
+
+      <div className="section-label">Revenue by plan tier — {view === "month" ? monthLabel(currentMonth) : `Jan–${monthLabel(currentMonth).split(" ")[0]}`}</div>
+      <div className="tbl-wrap" style={{ marginBottom: 20 }}>
+        <table className="k">
+          <thead><tr><th>Plan tier</th><th>Clients</th><th>Revenue</th></tr></thead>
+          <tbody>
+            {tierRows.length === 0 ? (
+              <tr><td colSpan={3} className="empty">No data yet.</td></tr>
+            ) : (
+              tierRows.map(([tier, data]) => (
+                <tr key={tier}>
+                  <td><span className="plan-tag">{tier}</span></td>
+                  <td>{data.count}</td>
+                  <td>${data.revenue.toLocaleString()}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-label">Highest and lowest paying clients</div>
+      <div className="rev-cards">
+        <div className="rev-card"><div className="l">Highest this month</div><div className="v" style={{ fontSize: 16 }}>{monthHL.high ? `${monthHL.high.name} — $${monthHL.high.total.toLocaleString()}` : "—"}</div></div>
+        <div className="rev-card"><div className="l">Lowest this month</div><div className="v" style={{ fontSize: 16 }}>{monthHL.low ? `${monthHL.low.name} — $${monthHL.low.total.toLocaleString()}` : "—"}</div></div>
+        <div className="rev-card"><div className="l">Highest this year</div><div className="v" style={{ fontSize: 16 }}>{yearHL.high ? `${yearHL.high.name} — $${yearHL.high.total.toLocaleString()}` : "—"}</div></div>
+        <div className="rev-card"><div className="l">Lowest this year</div><div className="v" style={{ fontSize: 16 }}>{yearHL.low ? `${yearHL.low.name} — $${yearHL.low.total.toLocaleString()}` : "—"}</div></div>
+      </div>
+
+      <div className="section-label">By client — {view === "month" ? monthLabel(currentMonth) : `Jan–${monthLabel(currentMonth).split(" ")[0]}`}</div>
+      <div className="tbl-wrap" style={{ marginBottom: 20 }}>
+        <table className="k">
+          <thead>
+            <tr><th>Client</th><th>Plan</th><th>Flight volume</th><th>Fees</th><th>Retainer</th><th>Retainer status</th></tr>
+          </thead>
+          <tbody>
+            {clients.map((c) => {
+              if (view === "month") {
+                const s = clientMonthStats(c, currentMonth);
+                return (
+                  <tr key={c.id}>
+                    <td className="cnum">{c.company_name}</td>
+                    <td><span className="plan-tag">{c.plan_tier}</span></td>
+                    <td>${s.flightVol.toLocaleString()}</td>
+                    <td>${s.fees.toLocaleString()}</td>
+                    <td>${s.retainerAmt.toLocaleString()}</td>
+                    <td><span className={`check-pill ${s.paid ? "paid" : "unpaid"}`}>{s.paid ? "✓ Paid" : "Unpaid"}</span></td>
+                  </tr>
+                );
+              }
+              const flightVol = months.reduce((s, m) => s + clientMonthStats(c, m).flightVol, 0);
+              const fees = months.reduce((s, m) => s + clientMonthStats(c, m).fees, 0);
+              const paidCount = months.filter((m) => clientMonthStats(c, m).paid).length;
+              const retainerCollected = paidCount * retainerForClient(c);
+              return (
                 <tr key={c.id}>
                   <td className="cnum">{c.company_name}</td>
                   <td><span className="plan-tag">{c.plan_tier}</span></td>
-                  <td>${retainerForClient(c).toLocaleString()}</td>
+                  <td>${flightVol.toLocaleString()}</td>
+                  <td>${fees.toLocaleString()}</td>
+                  <td>${retainerCollected.toLocaleString()}</td>
+                  <td><span className={`check-pill ${paidCount === months.length ? "paid" : "unpaid"}`}>{paidCount}/{months.length} paid</span></td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-label">Retainers outstanding this month</div>
+      {unpaidThisMonth.length === 0 ? (
+        <div className="empty">Everyone's paid up for {monthLabel(currentMonth)}.</div>
+      ) : (
+        <div className="tbl-wrap">
+          {unpaidThisMonth.map((c) => (
+            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--line)" }}>
+              <div>
+                <div style={{ fontWeight: 600, color: "var(--navy)" }}>{c.company_name}</div>
+                <div className="muted">{c.client_number} &middot; {c.plan_tier} plan &middot; ${retainerForClient(c).toLocaleString()}/mo &middot; due the {c.retainer_due_day || 1}{c.retainer_due_day === 1 ? "st" : "th"}</div>
+              </div>
+              <button className="navy" onClick={() => markPaid(c)}>Mark paid</button>
+            </div>
+          ))}
         </div>
       )}
-      <div className="muted" style={{ marginTop: 10, fontSize: 11.5 }}>
-        Mark retainers as paid from the Billing tab — this view just reflects what's already recorded there.
-      </div>
     </div>
   );
 }
