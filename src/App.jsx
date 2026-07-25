@@ -66,7 +66,7 @@ const TABS = [
   { key: "expense", label: "Expense" },
   { key: "reports", label: "Reports" },
   { key: "timesheets", label: "Time" },
-  { key: "team", label: "Team / Users" },
+  { key: "team", label: "Staff" },
   { key: "history", label: "History" },
 ];
 
@@ -109,7 +109,7 @@ function EhloShell({ session }) {
         {tab === "revenue" && <Revenue session={session} />}
         {tab === "expense" && <Expense session={session} />}
         {tab === "reports" && <Reports session={session} />}
-        {tab === "timesheets" && <Timesheets session={session} />}
+        {tab === "timesheets" && <Timesheets session={session} onNavigate={setTab} />}
         {tab === "team" && <Team session={session} />}
         {tab === "history" && <History session={session} />}
       </div>
