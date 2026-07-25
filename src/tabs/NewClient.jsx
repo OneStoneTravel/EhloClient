@@ -11,6 +11,7 @@ export default function NewClient({ session }) {
     contact_phone: "",
     date_joined: localDateStr(),
     monthly_threshold: 5000,
+    retainer_due_day: 1,
   });
   const [travelerDraft, setTravelerDraft] = useState("");
   const [travelerList, setTravelerList] = useState([]);
@@ -43,6 +44,7 @@ export default function NewClient({ session }) {
         contact_phone: form.contact_phone || null,
         date_joined: form.date_joined,
         monthly_threshold: parseFloat(form.monthly_threshold) || 0,
+        retainer_due_day: parseInt(form.retainer_due_day) || 1,
       })
       .select()
       .single();
@@ -63,7 +65,7 @@ export default function NewClient({ session }) {
     setStatus({ ok: true, msg: `${form.company_name} was created.` });
     setForm({
       company_name: "", client_number: "", plan_tier: "Starter", authorized_person: "",
-      contact_phone: "", date_joined: localDateStr(), monthly_threshold: 5000,
+      contact_phone: "", date_joined: localDateStr(), monthly_threshold: 5000, retainer_due_day: 1,
     });
     setTravelerList([]);
   }
@@ -79,6 +81,7 @@ export default function NewClient({ session }) {
           <div><label>Contact phone</label><input value={form.contact_phone} onChange={set("contact_phone")} placeholder="(602) 555-0142" /></div>
           <div><label>Client since</label><input type="date" value={form.date_joined} onChange={set("date_joined")} /></div>
           <div><label>Monthly threshold ($)</label><input type="number" step="1" value={form.monthly_threshold} onChange={set("monthly_threshold")} /></div>
+          <div><label>Retainer due day (day of month)</label><input type="number" min="1" max="28" value={form.retainer_due_day} onChange={set("retainer_due_day")} /></div>
 
           <div className="form-full">
             <label>Plan tier</label>
