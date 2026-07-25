@@ -110,6 +110,80 @@ export default function Revenue({ session }) {
     }
   }
 
+  function csvEscape(v) {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function downloadCSV() {
+    const rows = [["Date", "Client", "Client #", "Traveler", "Type", "Amount"]];
+
+    scopeMonths.forEach((m) => {
+      clients.forEach((c) => {
+        const retRow = retainers.find((r) => r.client_id === c.id && r.month === m);
+        if (retRow?.paid) {
+          rows.push([m, c.company_name, c.client_number || "", "", "Retainer", retainerForClient(c)]);
+        }
+      });
+    });
+
+    expenses
+      .filter((e) => scopeMonths.includes(e.entry_date.slice(0, 7) + "-01"))
+      .forEach((e) => {
+        const c = clients.find((cl) => cl.id === e.client_id);
+        if (Number(e.fee) > 0) {
+          rows.push([e.entry_date, c?.company_name || "", c?.client_number || "", e.traveler_name, `Booking fee (${e.category})`, e.fee]);
+        }
+      });
+
+    const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const label = view === "month" ? currentMonth.slice(0, 7) : `${currentMonth.slice(0, 4)}-YTD`;
+    a.href = url;
+    a.download = `OneStone-Revenue-${label}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printSummary() {
+    const win = window.open("", "_blank");
+    const scopeLabel = view === "month" ? monthLabel(currentMonth) : `Jan–${monthLabel(currentMonth).split(" ")[0]} ${currentMonth.slice(0, 4)} (YTD)`;
+    win.document.write(`
+      <html><head><title>OneStone Revenue — ${scopeLabel}</title>
+      <style>
+        body{font-family:Georgia,serif;padding:40px;color:#23262B;max-width:640px;margin:0 auto;}
+        h1{font-size:22px;margin-bottom:2px;}
+        .meta{color:#5B6270;font-size:13px;margin-bottom:24px;}
+        table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;}
+        td,th{padding:8px 0;border-bottom:1px solid #E2E6EB;text-align:left;}
+        td:last-child,th:last-child{text-align:right;}
+      </style></head><body>
+      <h1>OneStone Travel — Revenue Summary</h1>
+      <div class="meta">${scopeLabel}</div>
+      <table>
+        <tr><td>Retainers collected</td><td>$${agg.retainerCollected.toLocaleString()}</td></tr>
+        <tr><td>Booking fees collected</td><td>$${agg.fees.toLocaleString()}</td></tr>
+        <tr><td><b>Total revenue</b></td><td><b>$${totalRevenue.toLocaleString()}</b></td></tr>
+      </table>
+      <h1 style="font-size:16px;">Revenue by client</h1>
+      <table>
+        <tr><th>Client</th><th>Revenue</th></tr>
+        ${clients.map((c) => `<tr><td>${c.company_name}</td><td>$${clientTotalRevenue(c, scopeMonths).toLocaleString()}</td></tr>`).join("")}
+      </table>
+      <h1 style="font-size:16px;">Revenue by plan tier</h1>
+      <table>
+        <tr><th>Plan</th><th>Revenue</th></tr>
+        ${tierRows.map(([tier, data]) => `<tr><td>${tier} (${data.count} clients)</td><td>$${data.revenue.toLocaleString()}</td></tr>`).join("")}
+      </table>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  }
+
   return (
     <div className="panel">
       <h2>Revenue</h2>
@@ -227,6 +301,16 @@ export default function Revenue({ session }) {
           ))}
         </div>
       )}
+
+      <div className="section-label">Reports</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="navy" onClick={downloadCSV}>Download revenue CSV ({view === "month" ? "this month" : "YTD"})</button>
+        <button className="ghost" onClick={printSummary}>Print summary report</button>
+      </div>
+      <p className="muted" style={{ marginTop: 10 }}>
+        The CSV lists every retainer and booking fee transaction — ready to hand to a tax professional or import into QuickBooks.
+        The summary is a clean one-page printout of the totals above.
+      </p>
     </div>
   );
 }
