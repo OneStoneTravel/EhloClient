@@ -61,8 +61,8 @@ function AccessDenied({ email }) {
 const TABS = [
   { key: "home", label: "🏠" },
   { key: "newclient", label: "New Client +" },
-  { key: "directory", label: "Directory" },
   { key: "billing", label: "Billing" },
+  { key: "directory", label: "Directory" },
   { key: "revenue", label: "Revenue" },
   { key: "expense", label: "Expense" },
   { key: "proration", label: "Proration" },
