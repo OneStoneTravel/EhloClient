@@ -1,31 +1,40 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel } from "../shared";
+import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel, fetchExpenseTotals } from "../shared";
 
 export default function Home({ session, onNavigate }) {
   const [clients, setClients] = useState([]);
   const [retainers, setRetainers] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const month = currentMonthKey();
 
   useEffect(() => {
     async function load() {
-      const { data: c } = await supabase.from("clients").select("*");
-      setClients(c || []);
+      const [clientsRes, retainersRes, expensesRes, activityRes, expTotals] = await Promise.all([
+        supabase.from("clients").select("*"),
+        supabase.from("retainer_payments").select("*").eq("month", month),
+        supabase.from("client_expenses").select("*").gte("entry_date", month),
+        supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8),
+        fetchExpenseTotals([month]),
+      ]);
 
-      const { data: r } = await supabase.from("retainer_payments").select("*").eq("month", month);
-      setRetainers(r || []);
-
-      const { data: e } = await supabase.from("client_expenses").select("*").gte("entry_date", month);
-      setExpenses((e || []).filter((row) => row.entry_date.slice(0, 7) === month.slice(0, 7)));
-
-      const { data: a } = await supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8);
-      setActivity(a || []);
+      setClients(clientsRes.data || []);
+      setRetainers(retainersRes.data || []);
+      setExpenses((expensesRes.data || []).filter((row) => row.entry_date.slice(0, 7) === month.slice(0, 7)));
+      setActivity(activityRes.data || []);
+      setExpenseTotal(expTotals.total);
+      setLoading(false);
     }
     load();
   }, []);
+
+  if (loading) {
+    return <div className="panel"><div className="empty">Loading overview…</div></div>;
+  }
 
   const retainerForClient = (c) => planByKey(c.plan_tier).retainer;
   const retainerPaid = clients.reduce((s, c) => {
@@ -34,6 +43,8 @@ export default function Home({ session, onNavigate }) {
   }, 0);
   const feesThisMonth = expenses.reduce((s, e) => s + Number(e.fee), 0);
   const travelSpend = expenses.filter((e) => e.category !== "Booking Fee").reduce((s, e) => s + Number(e.amount), 0);
+  const totalRevenueThisMonth = retainerPaid + feesThisMonth;
+  const profit = totalRevenueThisMonth - expenseTotal;
   const unpaidClients = clients
     .filter((c) => !retainers.find((r) => r.client_id === c.id)?.paid)
     .map((c) => ({ ...c, due: dueStatus(daysUntilDue(c.retainer_due_day)) }))
@@ -62,7 +73,14 @@ export default function Home({ session, onNavigate }) {
           <div className="rev-card"><div className="l">Total clients</div><div className="v">{clients.length}</div></div>
           <div className="rev-card"><div className="l">Retainer collected</div><div className="v">${retainerPaid.toLocaleString()}</div></div>
           <div className="rev-card"><div className="l">Booking fees</div><div className="v">${feesThisMonth.toLocaleString()}</div></div>
-          <div className="rev-card accent"><div className="l">Total revenue this month</div><div className="v">${(retainerPaid + feesThisMonth).toLocaleString()}</div></div>
+          <div className="rev-card accent"><div className="l">Total revenue this month</div><div className="v">${totalRevenueThisMonth.toLocaleString()}</div></div>
+        </div>
+        <div className="rev-cards">
+          <div className="rev-card"><div className="l">Operating expenses this month</div><div className="v">${expenseTotal.toLocaleString()}</div></div>
+          <div className="rev-card" style={{ background: profit >= 0 ? "var(--green-bg)" : "var(--red-bg)", borderColor: profit >= 0 ? "#B9DAC5" : "#E3B3AA" }}>
+            <div className="l">Profit this month</div>
+            <div className="v" style={{ color: profit >= 0 ? "var(--green)" : "var(--red)" }}>${profit.toLocaleString()}</div>
+          </div>
         </div>
       </div>
 
