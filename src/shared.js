@@ -80,15 +80,19 @@ export function sparkline(values) {
   return `<svg width="${w}" height="${h}" style="overflow:visible;"><polyline points="${pts}" fill="none" stroke="#7A2E3A" stroke-width="2"/>${dots}</svg>`;
 }
 
-export function barChart(values, labels) {
-  const w = 560, h = 110, gap = 10;
+export function barChart(values, labels, highlightLast) {
+  const w = 620, h = 130, gap = 12;
   const max = Math.max(...values, 1);
   const bw = (w - gap * (values.length - 1)) / Math.max(values.length, 1);
   const bars = values.map((v, i) => {
-    const bh = Math.max((v / max) * (h - 20), 2);
+    const bh = Math.max((v / max) * (h - 40), 2);
     const x = i * (bw + gap);
-    const y = h - bh;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="#16233F"/>
+    const y = h - bh - 20;
+    const isLast = highlightLast && i === values.length - 1;
+    const fill = isLast ? "#7A2E3A" : "#16233F";
+    const valLabel = v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${fill}"/>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="10.5" fill="#23262B" text-anchor="middle" font-weight="600">${valLabel}</text>
       <text x="${(x + bw / 2).toFixed(1)}" y="${h + 14}" font-size="10" fill="#5B6270" text-anchor="middle">${labels[i]}</text>`;
   }).join("");
   return `<svg width="${w}" height="${h + 18}" viewBox="0 0 ${w} ${h + 18}" style="overflow:visible;">${bars}</svg>`;
