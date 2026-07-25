@@ -4,13 +4,10 @@ import { startOfWeekStr, addDaysStr, weekLabel, hoursWorked, logActivity } from 
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default function Timesheets({ session }) {
+export default function Timesheets({ session, onNavigate }) {
   const [weekStart, setWeekStart] = useState(startOfWeekStr());
-  const [profiles, setProfiles] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [entries, setEntries] = useState([]);
-  const [pendingRows, setPendingRows] = useState([]);
-  const [newWorkerName, setNewWorkerName] = useState("");
-  const [newWorkerRate, setNewWorkerRate] = useState("");
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({ clock_in: "", lunch_out: "", lunch_in: "", clock_out: "", hourly_rate: "" });
 
@@ -18,25 +15,26 @@ export default function Timesheets({ session }) {
   const weekEnd = addDaysStr(weekStart, 7);
 
   async function load() {
-    const { data: p } = await supabase.from("profiles").select("*").order("email");
-    setProfiles(p || []);
+    const { data: s } = await supabase.from("staff").select("*").order("full_name");
+    setStaffList(s || []);
     const { data: e } = await supabase.from("timesheets").select("*").gte("work_date", weekStart).lt("work_date", weekEnd);
     setEntries(e || []);
   }
   useEffect(() => { load(); }, [weekStart]);
 
+  // Roster = staff active during this week, plus anyone with real entries that week
+  // (covers someone terminated mid-week, or looking back at a past week's history).
   const roster = Array.from(new Set([
-    ...profiles.map((p) => p.email),
+    ...staffList.filter((s) => s.status === "active" || (s.termination_date && s.termination_date >= weekStart)).map((s) => s.full_name),
     ...entries.map((e) => e.staff_name),
-    ...pendingRows,
   ]));
 
   function entryFor(staffName, date) {
     return entries.find((e) => e.staff_name === staffName && e.work_date === date);
   }
   function defaultRateFor(staffName) {
-    const p = profiles.find((pr) => pr.email === staffName);
-    return p ? Number(p.hourly_rate) || 0 : 0;
+    const s = staffList.find((st) => st.full_name === staffName);
+    return s ? Number(s.hourly_rate) || 0 : 0;
   }
 
   function openCell(staffName, date) {
@@ -73,14 +71,6 @@ export default function Timesheets({ session }) {
     await supabase.from("timesheets").delete().eq("staff_name", staffName).eq("work_date", date);
     setEditing(null);
     load();
-  }
-
-  function addWorker() {
-    const name = newWorkerName.trim();
-    if (!name || roster.includes(name)) return;
-    setPendingRows([...pendingRows, name]);
-    setNewWorkerName("");
-    setNewWorkerRate("");
   }
 
   function rowTotals(staffName) {
@@ -145,7 +135,7 @@ export default function Timesheets({ session }) {
           </thead>
           <tbody>
             {roster.length === 0 ? (
-              <tr><td colSpan={10} className="empty">No staff yet — add one below.</td></tr>
+              <tr><td colSpan={10} className="empty">No active staff yet — add someone in the Staff tab.</td></tr>
             ) : (
               roster.map((name) => {
                 const t = rowTotals(name);
@@ -171,32 +161,45 @@ export default function Timesheets({ session }) {
         </table>
       </div>
 
-      <div className="section-label">Add a worker for the week</div>
-      <p className="muted" style={{ marginTop: -4 }}>Use this for a temp or day-worker who isn't a regular staff login.</p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <input placeholder="Name" value={newWorkerName} onChange={(e) => setNewWorkerName(e.target.value)} style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
-        <input placeholder="Hourly rate ($)" type="number" value={newWorkerRate} onChange={(e) => setNewWorkerRate(e.target.value)} style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, width: 130 }} />
-        <button onClick={addWorker}>Add to grid</button>
-      </div>
+      <p className="muted" style={{ marginTop: -8 }}>
+        Adding, removing, or terminating staff happens in the{" "}
+        <button className="ghost" style={{ padding: "1px 8px" }} onClick={() => onNavigate && onNavigate("team")}>Staff tab</button>{" "}
+        — that keeps this roster accurate even after switching tabs.
+      </p>
 
       <div className="section-label">Weekly report</div>
       <button className="navy" onClick={printWeeklyReport}>Print weekly report</button>
 
       {editing && (
         <div className="modal-overlay show" onClick={(ev) => { if (ev.target === ev.currentTarget) setEditing(null); }}>
-          <div className="modal-box">
+          <div className="modal-box time-modal">
             <h3>{editing.staffName}</h3>
             <div className="modal-sub">{editing.date}</div>
-            <label>Clock in</label>
-            <input type="time" value={editForm.clock_in} onChange={(e) => setEditForm({ ...editForm, clock_in: e.target.value })} />
-            <label>Lunch out</label>
-            <input type="time" value={editForm.lunch_out} onChange={(e) => setEditForm({ ...editForm, lunch_out: e.target.value })} />
-            <label>Lunch in (back from lunch)</label>
-            <input type="time" value={editForm.lunch_in} onChange={(e) => setEditForm({ ...editForm, lunch_in: e.target.value })} />
-            <label>Clock out</label>
-            <input type="time" value={editForm.clock_out} onChange={(e) => setEditForm({ ...editForm, clock_out: e.target.value })} />
-            <label>Hourly rate ($)</label>
-            <input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })} />
+
+            <div className="time-punch-grid">
+              <div className="time-punch-field">
+                <label>Clock in</label>
+                <input type="time" value={editForm.clock_in} onChange={(e) => setEditForm({ ...editForm, clock_in: e.target.value })} />
+              </div>
+              <div className="time-punch-field">
+                <label>Lunch out</label>
+                <input type="time" value={editForm.lunch_out} onChange={(e) => setEditForm({ ...editForm, lunch_out: e.target.value })} />
+              </div>
+              <div className="time-punch-field">
+                <label>Lunch in <span className="muted" style={{ fontWeight: 400 }}>(back from lunch)</span></label>
+                <input type="time" value={editForm.lunch_in} onChange={(e) => setEditForm({ ...editForm, lunch_in: e.target.value })} />
+              </div>
+              <div className="time-punch-field">
+                <label>Clock out</label>
+                <input type="time" value={editForm.clock_out} onChange={(e) => setEditForm({ ...editForm, clock_out: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="time-punch-field" style={{ marginTop: 14 }}>
+              <label>Hourly rate ($)</label>
+              <input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })} />
+            </div>
+
             <div className="modal-actions">
               <button className="ghost" onClick={clearCell}>Clear day</button>
               <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
