@@ -10,30 +10,58 @@ export default function Home({ session, onNavigate }) {
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [staffName, setStaffName] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const month = currentMonthKey();
 
   useEffect(() => {
-    async function load() {
-      const [clientsRes, retainersRes, expensesRes, activityRes, expTotals, staffRes] = await Promise.all([
-        supabase.from("clients").select("*"),
-        supabase.from("retainer_payments").select("*").eq("month", month),
-        supabase.from("client_expenses").select("*").gte("entry_date", month),
-        supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8),
-        fetchExpenseTotals([month]),
-        supabase.from("staff").select("full_name").eq("login_email", session.user.email).maybeSingle(),
-      ]);
-
-      setClients(clientsRes.data || []);
-      setRetainers(retainersRes.data || []);
-      setExpenses((expensesRes.data || []).filter((row) => row.entry_date.slice(0, 7) === month.slice(0, 7)));
-      setActivity(activityRes.data || []);
-      setExpenseTotal(expTotals.total);
-      setStaffName(staffRes.data?.full_name || null);
+    const timeout = setTimeout(() => {
+      setLoadError((prev) => prev || "This is taking much longer than expected — one of the requests may be stuck. Try refreshing.");
       setLoading(false);
+    }, 12000);
+
+    async function load() {
+      try {
+        const [clientsRes, retainersRes, expensesRes, activityRes, expTotals, staffRes] = await Promise.all([
+          supabase.from("clients").select("*"),
+          supabase.from("retainer_payments").select("*").eq("month", month),
+          supabase.from("client_expenses").select("*").gte("entry_date", month),
+          supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8),
+          fetchExpenseTotals([month]),
+          supabase.from("staff").select("full_name").eq("login_email", session.user.email).maybeSingle(),
+        ]);
+
+        if (clientsRes.error) throw clientsRes.error;
+        if (retainersRes.error) throw retainersRes.error;
+        if (expensesRes.error) throw expensesRes.error;
+        if (activityRes.error) throw activityRes.error;
+
+        setClients(clientsRes.data || []);
+        setRetainers(retainersRes.data || []);
+        setExpenses((expensesRes.data || []).filter((row) => row.entry_date.slice(0, 7) === month.slice(0, 7)));
+        setActivity(activityRes.data || []);
+        setExpenseTotal(expTotals.total);
+        setStaffName(staffRes.data?.full_name || null);
+      } catch (err) {
+        console.error("Home load error:", err);
+        setLoadError(err?.message || String(err));
+      } finally {
+        clearTimeout(timeout);
+        setLoading(false);
+      }
     }
     load();
+    return () => clearTimeout(timeout);
   }, []);
+
+  if (loadError) {
+    return (
+      <div className="panel">
+        <div style={{ color: "var(--red)", fontWeight: 600, marginBottom: 6 }}>Something went wrong loading this page.</div>
+        <div className="muted">{loadError}</div>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="panel"><div className="empty">Loading overview…</div></div>;
