@@ -6,7 +6,6 @@ import Directory from "./tabs/Directory";
 import Billing from "./tabs/Billing";
 import Revenue from "./tabs/Revenue";
 import Expense from "./tabs/Expense";
-import Proration from "./tabs/Proration";
 import Reports from "./tabs/Reports";
 import Timesheets from "./tabs/Timesheets";
 import Team from "./tabs/Team";
@@ -65,7 +64,6 @@ const TABS = [
   { key: "directory", label: "Directory" },
   { key: "revenue", label: "Revenue" },
   { key: "expense", label: "Expense" },
-  { key: "proration", label: "Proration" },
   { key: "reports", label: "Reports" },
   { key: "timesheets", label: "Time" },
   { key: "team", label: "Team / Users" },
@@ -110,7 +108,6 @@ function EhloShell({ session }) {
         {tab === "billing" && <Billing session={session} />}
         {tab === "revenue" && <Revenue session={session} />}
         {tab === "expense" && <Expense session={session} />}
-        {tab === "proration" && <Proration session={session} />}
         {tab === "reports" && <Reports session={session} />}
         {tab === "timesheets" && <Timesheets session={session} />}
         {tab === "team" && <Team session={session} />}
