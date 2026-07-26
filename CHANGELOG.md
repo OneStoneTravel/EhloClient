@@ -1,5 +1,10 @@
 # Ehlo Client — Changelog
 
+## 1.2 — Jul 25, 2026
+**Added**
+- Home now shows how many trips are on the books for today and tomorrow, pulled live from Knox Tracker — a quick read on how busy the team is.
+- Cross-system features shared with Knox Tracker: booking fees auto-logged when a trip is confirmed, client budget visibility, traveler trip history, and a disruption-to-billing flag — all show up automatically in Billing and Client Notes without any extra work on Ehlo's side.
+
 ## 1.1 — Jul 25, 2026
 **Fixed**
 - Critical bug: an infinite-recursion error in the owner-access check (`is_owner()`) was causing Billing, Revenue, Expense, and History to fail to load for some owner accounts, even though login worked fine. Fixed by having that check bypass its own permission check internally.
