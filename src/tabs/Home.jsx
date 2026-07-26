@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, monthLabel, fetchExpenseTotals, clientActiveInMonth } from "../shared";
+import { planByKey, statusColor, daysUntilDue, dueStatus, currentMonthKey, localDateStr, monthLabel, fetchExpenseTotals, clientActiveInMonth } from "../shared";
 
 export default function Home({ session, onNavigate }) {
   const [clients, setClients] = useState([]);
   const [retainers, setRetainers] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [tripsToday, setTripsToday] = useState(0);
+  const [tripsTomorrow, setTripsTomorrow] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [staffName, setStaffName] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,13 +24,18 @@ export default function Home({ session, onNavigate }) {
 
     async function load() {
       try {
-        const [clientsRes, retainersRes, expensesRes, activityRes, expTotals, staffRes] = await Promise.all([
+        const today = localDateStr();
+        const tomorrow = localDateStr(new Date(Date.now() + 86400000));
+
+        const [clientsRes, retainersRes, expensesRes, activityRes, expTotals, staffRes, tripsTodayRes, tripsTomorrowRes] = await Promise.all([
           supabase.from("clients").select("*"),
           supabase.from("retainer_payments").select("*").eq("month", month),
           supabase.from("client_expenses").select("*").gte("entry_date", month),
           supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(8),
           fetchExpenseTotals([month]),
           supabase.from("staff").select("full_name").eq("login_email", session.user.email).maybeSingle(),
+          supabase.from("trips").select("id", { count: "exact", head: true }).eq("travel_date", today),
+          supabase.from("trips").select("id", { count: "exact", head: true }).eq("travel_date", tomorrow),
         ]);
 
         if (clientsRes.error) throw clientsRes.error;
@@ -42,6 +49,8 @@ export default function Home({ session, onNavigate }) {
         setActivity(activityRes.data || []);
         setExpenseTotal(expTotals.total);
         setStaffName(staffRes.data?.full_name || null);
+        setTripsToday(tripsTodayRes.count || 0);
+        setTripsTomorrow(tripsTomorrowRes.count || 0);
       } catch (err) {
         console.error("Home load error:", err);
         setLoadError(err?.message || String(err));
@@ -133,6 +142,12 @@ export default function Home({ session, onNavigate }) {
             <div className="l">Profit this month</div>
             <div className="v" style={{ color: profit >= 0 ? "var(--green)" : "var(--red)" }}>${profit.toLocaleString()}</div>
           </div>
+        </div>
+
+        <div className="section-label">Reservations (Knox Tracker)</div>
+        <div className="rev-cards">
+          <div className="rev-card"><div className="l">Traveling today</div><div className="v">{tripsToday}</div></div>
+          <div className="rev-card"><div className="l">Traveling tomorrow</div><div className="v">{tripsTomorrow}</div></div>
         </div>
       </div>
 
