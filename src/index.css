@@ -15,6 +15,7 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;}
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .knox-logo{font-family:'Fraunces',Georgia,serif;font-size:27px;font-weight:600;color:#fff;letter-spacing:.06em}
 .knox-logo span{color:var(--wine-light)}
+.knox-logo .version-tag{font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:600;color:#9FB0C9;letter-spacing:.02em;vertical-align:middle;margin-left:4px;background:rgba(255,255,255,.08);padding:2px 7px;border-radius:5px;}
 .knox-sub{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9FB0C9;margin-top:-2px}
 .knox-user{font-size:13px;color:#C7D0DE;display:flex;align-items:center;gap:12px}
 .knox-user .who{font-weight:600;color:#fff}
