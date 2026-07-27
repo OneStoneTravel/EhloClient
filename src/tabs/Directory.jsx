@@ -13,6 +13,10 @@ export default function Directory({ session }) {
   const [showInactive, setShowInactive] = useState(false);
   const [ending, setEnding] = useState(null);
   const [endDate, setEndDate] = useState(localDateStr());
+  const [managingTravelers, setManagingTravelers] = useState(null);
+  const [clientTravelers, setClientTravelers] = useState([]);
+  const [travelerEdits, setTravelerEdits] = useState({});
+  const [newTravelerName, setNewTravelerName] = useState("");
 
   async function load() {
     const { data: c } = await supabase.from("clients").select("*").order("company_name");
@@ -71,6 +75,32 @@ export default function Directory({ session }) {
     load();
   }
 
+  async function openTravelers(c) {
+    setManagingTravelers(c);
+    setTravelerEdits({});
+    const { data } = await supabase.from("travelers").select("*").eq("client_id", c.id).order("name");
+    setClientTravelers(data || []);
+  }
+
+  async function saveTravelerLoyalty(t) {
+    const edits = travelerEdits[t.id] || {};
+    await supabase.from("travelers").update({
+      hotel_loyalty_number: edits.hotel_loyalty_number ?? t.hotel_loyalty_number ?? null,
+      car_loyalty_number: edits.car_loyalty_number ?? t.car_loyalty_number ?? null,
+    }).eq("id", t.id);
+    await logActivity(session, `updated loyalty numbers for ${t.name}.`);
+    openTravelers(managingTravelers);
+  }
+
+  async function addTravelerToClient() {
+    const name = newTravelerName.trim();
+    if (!name) return;
+    await supabase.from("travelers").insert({ client_id: managingTravelers.id, name });
+    setNewTravelerName("");
+    openTravelers(managingTravelers);
+    load();
+  }
+
   const filtered = clients
     .filter((c) => showInactive || c.status !== "inactive")
     .filter((c) => !search || (c.company_name + " " + (c.client_number || "")).toLowerCase().includes(search.toLowerCase()));
@@ -118,6 +148,7 @@ export default function Directory({ session }) {
                   <td className="muted">{travelerCounts[c.id] || 0}</td>
                   <td style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     <button className="ghost" onClick={() => openEdit(c)}>Edit</button>
+                    <button className="ghost" onClick={() => openTravelers(c)}>Travelers</button>
                     {c.status === "inactive"
                       ? <button className="ghost" onClick={() => reactivateClient(c)}>Reactivate</button>
                       : <button className="ghost" onClick={() => openEndService(c)}>End service</button>}
@@ -171,6 +202,48 @@ export default function Directory({ session }) {
             <div className="modal-actions">
               <button className="ghost" onClick={() => setEnding(null)}>Cancel</button>
               <button onClick={confirmEndService}>Confirm — end service</button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={!!managingTravelers} onClose={() => setManagingTravelers(null)}>
+        {managingTravelers && (
+          <>
+            <h3>Travelers — {managingTravelers.company_name}</h3>
+            <div className="modal-sub">Loyalty numbers stored here show up automatically in Knox Tracker when booking a hotel or rental car.</div>
+
+            {clientTravelers.length === 0 ? (
+              <div className="empty">No travelers yet.</div>
+            ) : (
+              clientTravelers.map((t) => (
+                <div key={t.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 10 }}>
+                  <div style={{ fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>{t.name}</div>
+                  <label>Hotel loyalty #</label>
+                  <input
+                    value={travelerEdits[t.id]?.hotel_loyalty_number ?? t.hotel_loyalty_number ?? ""}
+                    onChange={(e) => setTravelerEdits({ ...travelerEdits, [t.id]: { ...travelerEdits[t.id], hotel_loyalty_number: e.target.value } })}
+                  />
+                  <label>Rental car loyalty #</label>
+                  <input
+                    value={travelerEdits[t.id]?.car_loyalty_number ?? t.car_loyalty_number ?? ""}
+                    onChange={(e) => setTravelerEdits({ ...travelerEdits, [t.id]: { ...travelerEdits[t.id], car_loyalty_number: e.target.value } })}
+                  />
+                  <button className="ghost" onClick={() => saveTravelerLoyalty(t)}>Save</button>
+                </div>
+              ))
+            )}
+
+            <div style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+              <label>Add a traveler</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newTravelerName} onChange={(e) => setNewTravelerName(e.target.value)} placeholder="Full name" style={{ marginBottom: 0 }} />
+                <button onClick={addTravelerToClient}>Add</button>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setManagingTravelers(null)}>Close</button>
             </div>
           </>
         )}
