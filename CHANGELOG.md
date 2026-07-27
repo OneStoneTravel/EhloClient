@@ -1,5 +1,9 @@
 # Ehlo Client — Changelog
 
+## 1.4 — Jul 27, 2026
+**Fixed**
+- Critical bug: the `travelers` table was missing an UPDATE permission, so saving a traveler's hotel/car loyalty numbers silently failed — it looked like it saved, but nothing was actually written to the database.
+
 ## 1.3 — Jul 27, 2026
 **Added**
 - Directory now has a "Travelers" button per client, opening a way to view/add travelers and store each one's hotel and rental car loyalty numbers — these show up automatically in Knox Tracker when booking a hotel or car for them.
