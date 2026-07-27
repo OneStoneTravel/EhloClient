@@ -1,5 +1,10 @@
 # Ehlo Client — Changelog
 
+## 1.3 — Jul 27, 2026
+**Added**
+- Directory now has a "Travelers" button per client, opening a way to view/add travelers and store each one's hotel and rental car loyalty numbers — these show up automatically in Knox Tracker when booking a hotel or car for them.
+- Billing now receives hotel and rental car costs automatically from Knox Tracker, alongside flight costs, whenever a trip includes them.
+
 ## 1.2 — Jul 25, 2026
 **Added**
 - Home now shows how many trips are on the books for today and tomorrow, pulled live from Knox Tracker — a quick read on how busy the team is.
