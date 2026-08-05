@@ -3,6 +3,8 @@ import { supabase } from "./supabaseClient";
 import Home from "./tabs/Home";
 import NewClient from "./tabs/NewClient";
 import Directory from "./tabs/Directory";
+import Inquiries from "./tabs/Inquiries";
+import Requests from "./tabs/Requests";
 import Billing from "./tabs/Billing";
 import Revenue from "./tabs/Revenue";
 import Expense from "./tabs/Expense";
@@ -62,6 +64,8 @@ const TABS = [
   { key: "newclient", label: "New Client +" },
   { key: "billing", label: "Billing" },
   { key: "directory", label: "Directory" },
+  { key: "inquiries", label: "Business Inquiries" },
+  { key: "requests", label: "Travel Requests" },
   { key: "revenue", label: "Revenue" },
   { key: "expense", label: "Expense" },
   { key: "reports", label: "Reports" },
@@ -97,6 +101,15 @@ class TabErrorBoundary extends Component {
 
 function EhloShell({ session }) {
   const [tab, setTab] = useState("home");
+  const [badges, setBadges] = useState({ inquiries: 0, requests: 0 });
+
+  async function loadBadges() {
+    const { count: leadCount } = await supabase.from("leads").select("id", { count: "exact", head: true }).eq("reviewed", false);
+    const { count: reqCount } = await supabase.from("requests").select("id", { count: "exact", head: true }).eq("status", "New");
+    setBadges({ inquiries: leadCount || 0, requests: reqCount || 0 });
+  }
+
+  useEffect(() => { loadBadges(); }, [tab]);
 
   return (
     <div>
@@ -123,6 +136,7 @@ function EhloShell({ session }) {
               onClick={() => setTab(t.key)}
             >
               {t.label}
+              {badges[t.key] > 0 && <span className="tab-badge">{badges[t.key]}</span>}
             </button>
           ))}
         </div>
@@ -131,6 +145,8 @@ function EhloShell({ session }) {
           {tab === "home" && <Home session={session} onNavigate={setTab} />}
           {tab === "newclient" && <NewClient session={session} />}
           {tab === "directory" && <Directory session={session} />}
+          {tab === "inquiries" && <Inquiries session={session} />}
+          {tab === "requests" && <Requests session={session} />}
           {tab === "billing" && <Billing session={session} />}
           {tab === "revenue" && <Revenue session={session} />}
           {tab === "expense" && <Expense session={session} />}
