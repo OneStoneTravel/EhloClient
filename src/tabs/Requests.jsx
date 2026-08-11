@@ -59,12 +59,12 @@ export default function Requests({ session }) {
           <thead>
             <tr>
               <th>Client #</th><th>Company</th><th>Contact</th><th>Destination</th>
-              <th>Dates</th><th>Travelers</th><th>Priority</th><th>Status</th><th></th>
+              <th>Dates</th><th>Travelers</th><th>Hotel</th><th>Car</th><th>Priority</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={9} className="empty">No requests to review.</td></tr>
+              <tr><td colSpan={11} className="empty">No requests to review.</td></tr>
             ) : (
               visible.map((r) => {
                 const style = STATUS_STYLE[r.status] || STATUS_STYLE.New;
@@ -79,6 +79,8 @@ export default function Requests({ session }) {
                       {r.return_date ? " – " + new Date(r.return_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
                     </td>
                     <td className="muted" style={{ whiteSpace: "pre-line", maxWidth: 180 }}>{r.traveler_names}</td>
+                    <td title={r.hotel_notes || ""}>{r.wants_hotel ? "✓" : "—"}</td>
+                    <td title={r.car_notes || ""}>{r.wants_car ? "✓" : "—"}</td>
                     <td>{r.priority === "urgent" ? <span className="plan-tag" style={{ background: "var(--red-bg)", color: "var(--red)", borderColor: "#F0C7BE" }}>Urgent</span> : "Standard"}</td>
                     <td><span className="plan-tag" style={{ background: style.bg, color: style.c, borderColor: "transparent" }}>{r.status}</span></td>
                     <td style={{ whiteSpace: "nowrap" }}>

@@ -1,5 +1,13 @@
 # Ehlo Client — Changelog
 
+## 1.5 — Aug 10, 2026
+**Added**
+- Traveler management in Directory now captures date of birth and gender alongside loyalty numbers — required for flight booking and now visible read-only in Knox Tracker's trip form.
+- Travel Requests tab now shows whether the client also asked for a hotel and/or rental car on each request, with their notes available on hover.
+
+**Security**
+- Reviewed the public portal's SECURITY DEFINER functions (`get_client_by_number`, `get_client_travelers`, `add_client_traveler`, `remove_client_traveler`, `submit_client_request`, plus the new `update_client_traveler_details`) — all correctly scope to the requesting client's `client_number` and `status = 'active'`, and traveler edits/removals verify ownership. Flagged the client number itself as the portal's only credential — recommend high-entropy client numbers and rate limiting/CAPTCHA on the anon RPC calls as a follow-up.
+
 ## 1.4 — Jul 27, 2026
 **Fixed**
 - Critical bug: the `travelers` table was missing an UPDATE permission, so saving a traveler's hotel/car loyalty numbers silently failed — it looked like it saved, but nothing was actually written to the database.

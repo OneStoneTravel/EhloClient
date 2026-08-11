@@ -87,8 +87,10 @@ export default function Directory({ session }) {
     await supabase.from("travelers").update({
       hotel_loyalty_number: edits.hotel_loyalty_number ?? t.hotel_loyalty_number ?? null,
       car_loyalty_number: edits.car_loyalty_number ?? t.car_loyalty_number ?? null,
+      date_of_birth: edits.date_of_birth ?? t.date_of_birth ?? null,
+      gender: edits.gender ?? t.gender ?? null,
     }).eq("id", t.id);
-    await logActivity(session, `updated loyalty numbers for ${t.name}.`);
+    await logActivity(session, `updated details for ${t.name}.`);
     openTravelers(managingTravelers);
   }
 
@@ -219,6 +221,27 @@ export default function Directory({ session }) {
               clientTravelers.map((t) => (
                 <div key={t.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 10 }}>
                   <div style={{ fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>{t.name}</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label>Date of birth</label>
+                      <input
+                        type="date"
+                        value={travelerEdits[t.id]?.date_of_birth ?? t.date_of_birth ?? ""}
+                        onChange={(e) => setTravelerEdits({ ...travelerEdits, [t.id]: { ...travelerEdits[t.id], date_of_birth: e.target.value } })}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label>Gender</label>
+                      <select
+                        value={travelerEdits[t.id]?.gender ?? t.gender ?? ""}
+                        onChange={(e) => setTravelerEdits({ ...travelerEdits, [t.id]: { ...travelerEdits[t.id], gender: e.target.value } })}
+                      >
+                        <option value="">—</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                  </div>
                   <label>Hotel loyalty #</label>
                   <input
                     value={travelerEdits[t.id]?.hotel_loyalty_number ?? t.hotel_loyalty_number ?? ""}
