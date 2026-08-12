@@ -163,21 +163,30 @@ export default function Plans({ session }) {
     <div>
       <div className="panel">
         <h2>Plan Tiers</h2>
-        <div className="tier-pick-row">
+        <div className="plan-card-grid">
           {PLAN_TIERS.map((p) => (
-            <div className="tier-option" key={p.key} style={{ cursor: "default" }}>
-              <div className="tier-name">{p.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--navy)", margin: "4px 0" }}>
+            <div className="plan-card" key={p.key}>
+              <div className="plan-card-name">{p.label}</div>
+              <div className="plan-card-price">
                 {money(p.retainer)}
-                <span style={{ fontSize: 11.5, fontWeight: 400, color: "var(--ink-soft)" }}> / mo</span>
+                <small>/ mo{p.key === "Anchor" ? "+" : ""}</small>
               </div>
-              <div className="tier-desc">{p.travelerCap === Infinity ? "40+ travelers" : `Up to ${p.travelerCap} travelers`}</div>
-              <div className="tier-desc" style={{ marginTop: 6 }}>
-                {p.key === "Anchor"
-                  ? `Blended rate, ~$${p.flightRate}/booking`
-                  : `$${p.flightRate}/flight · $${p.otherRate}/hotel, car, or other`}
-              </div>
-              <div className="tier-desc" style={{ marginTop: 6, fontStyle: "italic" }}>{p.tagline}</div>
+              <div className="plan-card-cap">{p.travelerCap === Infinity ? "40+ travelers" : `Up to ${p.travelerCap} travelers`}</div>
+              <ul>
+                {p.key === "Anchor" ? (
+                  <>
+                    <li>Blended rate, ~${p.flightRate}/booking</li>
+                    <li>Scoped to your volume</li>
+                    <li>Per-trip or per-event pricing</li>
+                  </>
+                ) : (
+                  <>
+                    <li>${p.flightRate} per flight</li>
+                    <li>${p.otherRate} per hotel, car, or other</li>
+                  </>
+                )}
+              </ul>
+              <div className="plan-card-tagline">{p.tagline}</div>
             </div>
           ))}
         </div>
@@ -222,15 +231,15 @@ export default function Plans({ session }) {
         <h3 style={{ marginTop: 22 }}>Or build your own mix</h3>
         <div className="form-grid">
           <div>
-            <label>Starter clients ({money(rateFor("Starter"))}/mo each)</label>
+            <label>Starter — {money(rateFor("Starter"))}/mo each</label>
             <input type="number" min="0" value={mix.Starter} onChange={(e) => setMixCount("Starter", e.target.value)} />
           </div>
           <div>
-            <label>Growth clients ({money(rateFor("Growth"))}/mo each)</label>
+            <label>Growth — {money(rateFor("Growth"))}/mo each</label>
             <input type="number" min="0" value={mix.Growth} onChange={(e) => setMixCount("Growth", e.target.value)} />
           </div>
           <div>
-            <label>Premier clients ({money(rateFor("Premier"))}/mo each)</label>
+            <label>Premier — {money(rateFor("Premier"))}/mo each</label>
             <input type="number" min="0" value={mix.Premier} onChange={(e) => setMixCount("Premier", e.target.value)} />
           </div>
           <div>
@@ -238,23 +247,23 @@ export default function Plans({ session }) {
             <input type="number" min="0" value={mix.Anchor} onChange={(e) => setMixCount("Anchor", e.target.value)} />
           </div>
           <div>
-            <label>Avg. Anchor retainer</label>
+            <label>Avg Anchor retainer</label>
             <input type="number" min="0" value={anchorAvg} onChange={(e) => setAnchorAvg(e.target.value)} />
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--line)" }}>
-          <div>
-            <div className="muted">Monthly (retainer only)</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--navy)" }}>{money(monthlyRetainer)}</div>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="stat-label">Monthly (retainer only)</div>
+            <div className="stat-value">{money(monthlyRetainer)}</div>
           </div>
-          <div>
-            <div className="muted">6 months</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--navy)" }}>{money(sixMonthRetainer)}</div>
+          <div className="stat">
+            <div className="stat-label">6 months</div>
+            <div className="stat-value">{money(sixMonthRetainer)}</div>
           </div>
-          <div>
-            <div className="muted">12 months</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--wine)" }}>{money(annualRetainer)}</div>
+          <div className="stat">
+            <div className="stat-label">12 months</div>
+            <div className="stat-value accent">{money(annualRetainer)}</div>
           </div>
         </div>
 
@@ -303,7 +312,7 @@ export default function Plans({ session }) {
             />
           </div>
           <div>
-            <label>Avg. bookings per traveler / month</label>
+            <label>Bookings per traveler / mo</label>
             <input
               type="number"
               step="0.1"
@@ -313,7 +322,7 @@ export default function Plans({ session }) {
             />
           </div>
           <div>
-            <label>Needs a dedicated account contact?</label>
+            <label>Dedicated account contact?</label>
             <select value={dedicated ? "yes" : "no"} onChange={(e) => setDedicated(e.target.value === "yes")}>
               <option value="no">No</option>
               <option value="yes">Yes (+$1,500/mo)</option>
@@ -352,41 +361,41 @@ export default function Plans({ session }) {
           </button>
         )}
 
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--line)" }}>
-          <div>
-            <div className="muted">Monthly bookings</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--navy)" }}>{monthlyBookings.toFixed(1)}</div>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="stat-label">Monthly bookings</div>
+            <div className="stat-value">{monthlyBookings.toFixed(1)}</div>
           </div>
-          <div>
-            <div className="muted">Booking fee revenue / mo</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--navy)" }}>{money(bookingRevenue)}</div>
+          <div className="stat">
+            <div className="stat-label">Booking fee revenue / mo</div>
+            <div className="stat-value">{money(bookingRevenue)}</div>
           </div>
-          <div>
-            <div className="muted">Total revenue / mo</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--wine)" }}>{money(totalMonthly)}</div>
+          <div className="stat">
+            <div className="stat-label">Total revenue / mo</div>
+            <div className="stat-value accent">{money(totalMonthly)}</div>
           </div>
         </div>
 
         <h3 style={{ marginTop: 22 }}>Revenue if this deal closes</h3>
-        <div className="form-grid" style={{ marginBottom: 10 }}>
-          <div>
-            <div className="muted">1 month</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{money(proj1)}</div>
+        <div className="stat-row" style={{ marginTop: 6, paddingTop: 0, borderTop: "none" }}>
+          <div className="stat">
+            <div className="stat-label">1 month</div>
+            <div className="stat-value">{money(proj1)}</div>
           </div>
-          <div>
-            <div className="muted">3 months</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{money(proj3)}</div>
+          <div className="stat">
+            <div className="stat-label">3 months</div>
+            <div className="stat-value">{money(proj3)}</div>
           </div>
-          <div>
-            <div className="muted">6 months</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{money(proj6)}</div>
+          <div className="stat">
+            <div className="stat-label">6 months</div>
+            <div className="stat-value">{money(proj6)}</div>
           </div>
-          <div>
-            <div className="muted">12 months</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--navy)" }}>{money(proj12)}</div>
+          <div className="stat">
+            <div className="stat-label">12 months</div>
+            <div className="stat-value accent">{money(proj12)}</div>
           </div>
         </div>
-        <div dangerouslySetInnerHTML={{ __html: barChart([proj1, proj3, proj6, proj12], ["1 mo", "3 mo", "6 mo", "12 mo"], true) }} />
+        <div style={{ marginTop: 14 }} dangerouslySetInnerHTML={{ __html: barChart([proj1, proj3, proj6, proj12], ["1 mo", "3 mo", "6 mo", "12 mo"], true) }} />
         <p className="muted" style={{ marginTop: 6 }}>Assumes steady monthly volume at these terms — no churn, no ramp-up.</p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>

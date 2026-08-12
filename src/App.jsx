@@ -175,7 +175,7 @@ function EhloShell({ session }) {
       <div className="knoxbar">
         <div className="knoxbar-inner">
           <div>
-            <div className="knox-logo">Ehl<span>o</span> <span className="version-tag">v1.8</span></div>
+            <div className="knox-logo">Ehl<span>o</span> <span className="version-tag">v1.9</span></div>
             <div className="knox-sub">OneStone Client Accounts</div>
           </div>
           <div className="knox-user">

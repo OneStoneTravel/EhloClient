@@ -1,5 +1,10 @@
 # Ehlo Client — Changelog
 
+## 1.9 — Aug 12, 2026
+**Fixed**
+- Nav bar: Home, Clients, Finance, Team, and Plans now sit on the same vertical line — added proper alignment to the tab bar so mismatched button heights (the Home icon vs. the dropdown buttons) no longer throw the row off.
+- Plans tab: replaced the cramped, ad-hoc styling on the tier cards and revenue figures with dedicated layout — plan cards now use a proper grid with consistent spacing, and all dollar figures use the same Fraunces-serif treatment the rest of Ehlo uses for stats (Revenue, Directory), instead of plain inline text that looked out of place.
+
 ## 1.8 — Aug 11, 2026
 **Added**
 - Plans tab: new **Growth & Goal Planner** — set an annual revenue goal and see how many clients of a single tier it would take to hit it alone, or build a custom client mix (Starter/Growth/Premier/Anchor counts) and see projected retainer revenue at 1/6/12 months with a live progress bar toward the goal, plus a "how many more clients closes the gap" breakdown per tier. Retainer revenue only — doesn't include booking fees.
