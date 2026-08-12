@@ -1,5 +1,18 @@
 # Ehlo Client — Changelog
 
+## 1.8 — Aug 11, 2026
+**Added**
+- Plans tab: new **Growth & Goal Planner** — set an annual revenue goal and see how many clients of a single tier it would take to hit it alone, or build a custom client mix (Starter/Growth/Premier/Anchor counts) and see projected retainer revenue at 1/6/12 months with a live progress bar toward the goal, plus a "how many more clients closes the gap" breakdown per tier. Retainer revenue only — doesn't include booking fees.
+
+## 1.7 — Aug 11, 2026
+**Changed**
+- Reorganized the top nav from 12 flat tabs into grouped dropdowns: **Clients** (New Client, Directory, Business Inquiries, Travel Requests), **Finance** (Billing, Revenue, Expense, Reports), and **Team** (Time, Staff, History). Home and Plans stay as standalone tabs. Notification badges now also roll up onto the group button so nothing gets missed inside a collapsed dropdown.
+
+## 1.6 — Aug 11, 2026
+**Added**
+- New **Plans** tab: a live reference for all four plan tiers, plus an Anchor Deal Calculator for scoping large-account pricing on a call — input traveler count and expected booking volume, get a suggested monthly retainer and per-booking fee (fully editable), and see projected revenue at 1/3/6/12 months.
+- Estimates can be saved per prospect (new `plan_estimates` table, owner-only) for reference across a multi-month sales cycle.
+
 ## 1.5 — Aug 10, 2026
 **Added**
 - Traveler management in Directory now captures date of birth and gender alongside loyalty numbers — required for flight booking and now visible read-only in Knox Tracker's trip form.

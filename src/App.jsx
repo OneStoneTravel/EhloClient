@@ -12,6 +12,7 @@ import Reports from "./tabs/Reports";
 import Timesheets from "./tabs/Timesheets";
 import Team from "./tabs/Team";
 import History from "./tabs/History";
+import Plans from "./tabs/Plans";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -59,19 +60,35 @@ function AccessDenied({ email }) {
   );
 }
 
-const TABS = [
-  { key: "home", label: "🏠" },
-  { key: "newclient", label: "New Client +" },
-  { key: "billing", label: "Billing" },
-  { key: "directory", label: "Directory" },
-  { key: "inquiries", label: "Business Inquiries" },
-  { key: "requests", label: "Travel Requests" },
-  { key: "revenue", label: "Revenue" },
-  { key: "expense", label: "Expense" },
-  { key: "reports", label: "Reports" },
-  { key: "timesheets", label: "Time" },
-  { key: "team", label: "Staff" },
-  { key: "history", label: "History" },
+const NAV = [
+  { type: "single", key: "home", label: "🏠" },
+  {
+    type: "group", key: "clientsGroup", label: "Clients",
+    items: [
+      { key: "newclient", label: "New Client +" },
+      { key: "directory", label: "Directory" },
+      { key: "inquiries", label: "Business Inquiries" },
+      { key: "requests", label: "Travel Requests" },
+    ],
+  },
+  {
+    type: "group", key: "financeGroup", label: "Finance",
+    items: [
+      { key: "billing", label: "Billing" },
+      { key: "revenue", label: "Revenue" },
+      { key: "expense", label: "Expense" },
+      { key: "reports", label: "Reports" },
+    ],
+  },
+  {
+    type: "group", key: "teamGroup", label: "Team",
+    items: [
+      { key: "timesheets", label: "Time" },
+      { key: "team", label: "Staff" },
+      { key: "history", label: "History" },
+    ],
+  },
+  { type: "single", key: "plans", label: "Plans" },
 ];
 
 class TabErrorBoundary extends Component {
@@ -99,8 +116,42 @@ class TabErrorBoundary extends Component {
   }
 }
 
+function TabGroup({ group, tab, setTab, badges, openGroup, setOpenGroup }) {
+  const isOpen = openGroup === group.key;
+  const activeItem = group.items.find((i) => i.key === tab);
+  const badgeSum = group.items.reduce((s, i) => s + (badges[i.key] || 0), 0);
+
+  return (
+    <div className="tab-group">
+      <button
+        className={`tab-btn ${activeItem ? "active" : ""}`}
+        onClick={() => setOpenGroup(isOpen ? null : group.key)}
+      >
+        {activeItem ? activeItem.label : group.label}
+        {badgeSum > 0 && <span className="tab-badge">{badgeSum}</span>}
+        <span className="tab-caret">▾</span>
+      </button>
+      {isOpen && (
+        <div className="tab-dropdown">
+          {group.items.map((it) => (
+            <button
+              key={it.key}
+              className={`tab-dropdown-item ${tab === it.key ? "active" : ""}`}
+              onClick={() => { setTab(it.key); setOpenGroup(null); }}
+            >
+              {it.label}
+              {badges[it.key] > 0 && <span className="tab-badge">{badges[it.key]}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EhloShell({ session }) {
   const [tab, setTab] = useState("home");
+  const [openGroup, setOpenGroup] = useState(null);
   const [badges, setBadges] = useState({ inquiries: 0, requests: 0 });
 
   async function loadBadges() {
@@ -111,12 +162,20 @@ function EhloShell({ session }) {
 
   useEffect(() => { loadBadges(); }, [tab]);
 
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (!e.target.closest(".tab-group")) setOpenGroup(null);
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   return (
     <div>
       <div className="knoxbar">
         <div className="knoxbar-inner">
           <div>
-            <div className="knox-logo">Ehl<span>o</span> <span className="version-tag">v1.5</span></div>
+            <div className="knox-logo">Ehl<span>o</span> <span className="version-tag">v1.8</span></div>
             <div className="knox-sub">OneStone Client Accounts</div>
           </div>
           <div className="knox-user">
@@ -128,17 +187,29 @@ function EhloShell({ session }) {
 
       <div className="wrap">
         <div className="tab-bar">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              className={`tab-btn ${tab === t.key ? "active" : ""}`}
-              style={t.key === "home" ? { fontSize: 17 } : undefined}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-              {badges[t.key] > 0 && <span className="tab-badge">{badges[t.key]}</span>}
-            </button>
-          ))}
+          {NAV.map((n) =>
+            n.type === "single" ? (
+              <button
+                key={n.key}
+                className={`tab-btn ${tab === n.key ? "active" : ""}`}
+                style={n.key === "home" ? { fontSize: 17 } : undefined}
+                onClick={() => { setTab(n.key); setOpenGroup(null); }}
+              >
+                {n.label}
+                {badges[n.key] > 0 && <span className="tab-badge">{badges[n.key]}</span>}
+              </button>
+            ) : (
+              <TabGroup
+                key={n.key}
+                group={n}
+                tab={tab}
+                setTab={setTab}
+                badges={badges}
+                openGroup={openGroup}
+                setOpenGroup={setOpenGroup}
+              />
+            )
+          )}
         </div>
 
         <TabErrorBoundary key={tab}>
@@ -154,6 +225,7 @@ function EhloShell({ session }) {
           {tab === "timesheets" && <Timesheets session={session} onNavigate={setTab} />}
           {tab === "team" && <Team session={session} />}
           {tab === "history" && <History session={session} />}
+          {tab === "plans" && <Plans session={session} />}
         </TabErrorBoundary>
       </div>
     </div>

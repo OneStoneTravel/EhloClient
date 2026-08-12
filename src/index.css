@@ -48,6 +48,18 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;}
   font-weight:700;padding:1px 6px;border-radius:999px;vertical-align:middle}
 .tab-btn.active .tab-badge{background:#fff;color:var(--wine)}
 
+.tab-group{position:relative}
+.tab-caret{font-size:9px;margin-left:5px;opacity:.7;display:inline-block}
+.tab-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--line);
+  border-radius:10px;box-shadow:0 6px 20px rgba(15,26,48,.14);padding:6px;min-width:190px;z-index:50;
+  display:flex;flex-direction:column;gap:2px}
+.tab-dropdown-item{background:none;border:none;text-align:left;padding:9px 12px;font-size:13px;font-weight:600;
+  color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;border-radius:7px;white-space:nowrap;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tab-dropdown-item:hover{background:var(--wine-pale);color:var(--wine)}
+.tab-dropdown-item.active{background:var(--wine);color:#fff}
+.tab-dropdown-item.active .tab-badge{background:#fff;color:var(--wine)}
+
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:22px;box-shadow:0 1px 2px rgba(15,26,48,.04)}
 .panel h2{font-size:16px;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px;color:var(--navy);font-weight:600}
 .panel h3{font-size:16px;color:var(--navy);margin:0 0 12px}
